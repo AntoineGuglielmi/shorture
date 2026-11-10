@@ -1,6 +1,5 @@
-export type TargetApplication = "vscode" | "phpstorm" | "chrome" | "teams";
-
 export type GestureName =
+  | "one-finger-tap"
   | "two-finger-tap"
   | "two-finger-swipe-left"
   | "two-finger-swipe-right"
@@ -9,24 +8,35 @@ export type GestureName =
   | "pinch-in"
   | "pinch-out";
 
-export type GestureScope =
-  | { type: "global" }
-  | { type: "application"; application: TargetApplication };
+export type InstalledApplication = {
+  id: string;
+  name: string;
+  executablePath: string;
+  arguments: string;
+  processName: string;
+};
 
 export type GestureAction =
-  | { type: "activate-application"; application: TargetApplication }
+  | { type: "activate-application"; applicationId: string }
+  | { type: "windows-shortcut"; shortcut: string }
   | { type: "keyboard-shortcut"; shortcut: string };
 
-export type GestureBinding = {
+export type GestureCommand = {
   id: string;
-  fingers: 2;
+  fingers: 1 | 2;
   gesture: GestureName;
-  scope: GestureScope;
   action: GestureAction;
 };
 
+export type ContextApp = {
+  id: string;
+  application: InstalledApplication;
+  commands: GestureCommand[];
+};
+
 export type ShortureConfig = {
-  bindings: GestureBinding[];
+  globalCommands: GestureCommand[];
+  contextApps: ContextApp[];
 };
 
 export type DesktopInfo = {
@@ -34,6 +44,7 @@ export type DesktopInfo = {
   port: number;
   pin: string;
   config: ShortureConfig;
+  installedApplications: InstalledApplication[];
 };
 
 export type ShortcutFailure = {
