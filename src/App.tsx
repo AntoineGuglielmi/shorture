@@ -164,14 +164,19 @@ function MobileApp() {
     setStatus(`Geste envoyé : ${gestureLabels[gesture]}`);
   }, []);
 
-  const pointerMap = useRef(new Map<number, { x: number; y: number }>());
+  const pointerMap = useRef(new Map<number, { x: number; y: number; startX: number; startY: number }>());
   const gestureStart = useRef<{ count: number; points: Array<{ x: number; y: number }>; time: number } | null>(null);
   const moved = useRef(false);
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
-    pointerMap.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    pointerMap.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+      startX: event.clientX,
+      startY: event.clientY
+    });
     if (pointerMap.current.size >= 2) {
       gestureStart.current = {
         count: pointerMap.current.size,
@@ -185,8 +190,11 @@ function MobileApp() {
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const previous = pointerMap.current.get(event.pointerId);
     if (!previous) return;
-    if (Math.hypot(event.clientX - previous.x, event.clientY - previous.y) > 18) moved.current = true;
-    pointerMap.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    // Measure cumulative movement from the initial contact, not event-to-event deltas.
+    if (Math.hypot(event.clientX - previous.startX, event.clientY - previous.startY) > 18) {
+      moved.current = true;
+    }
+    pointerMap.current.set(event.pointerId, { ...previous, x: event.clientX, y: event.clientY });
   };
 
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
@@ -194,7 +202,13 @@ function MobileApp() {
     const startCount = start?.count ?? pointerMap.current.size;
 
     // Include the final pointer position: some devices do not emit a last pointermove.
-    pointerMap.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const previous = pointerMap.current.get(event.pointerId);
+    pointerMap.current.set(event.pointerId, {
+      x: event.clientX,
+      y: event.clientY,
+      startX: previous?.startX ?? event.clientX,
+      startY: previous?.startY ?? event.clientY
+    });
     const currentPoints = [...pointerMap.current.values()];
 
     if (start && startCount >= 2 && currentPoints.length >= 2) {
