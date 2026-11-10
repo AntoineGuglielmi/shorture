@@ -32,8 +32,6 @@ export async function executeShortcut(executablePath: string, action: ShortcutAc
     return wait + "[System.Windows.Forms.SendKeys]::SendWait('" + escapePowerShell(sequence) + "')";
   }).join("\r\n");
 
-  // Keep the script multiline: joining PowerShell block delimiters with semicolons
-  // can produce parser errors around try/catch and localized strings.
   const script = [
     "$ErrorActionPreference = 'Stop'",
     "try {",
@@ -69,7 +67,6 @@ export async function executeShortcut(executablePath: string, action: ShortcutAc
   }
 }
 
-
 export type TargetApplication = "vscode" | "phpstorm" | "chrome" | "teams";
 
 const processNames: Record<TargetApplication, string[]> = {
@@ -88,11 +85,30 @@ export async function activateApplication(application: TargetApplication): Promi
   const script = [
     "$ErrorActionPreference = 'Stop'",
     "try {",
+    "  Add-Type -TypeDefinition @'",
+    "using System;",
+    "using System.Runtime.InteropServices;",
+    "public static class ShortureWindowApi {",
+    "  [DllImport(\"user32.dll\")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);",
+    "  [DllImport(\"user32.dll\")] public static extern bool SetForegroundWindow(IntPtr hWnd);",
+    "  [DllImport(\"user32.dll\")] public static extern IntPtr GetForegroundWindow();",
+    "}",
+    "'@",
     "  $names = @(" + candidates + ")",
     "  $process = Get-Process -Name $names -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1",
     "  if (-not $process) { throw 'No open window was found for " + application + ".' }",
-    "  $shell = New-Object -ComObject WScript.Shell",
-    "  if (-not $shell.AppActivate($process.Id)) { throw 'Could not activate the " + application + " window.' }",
+    "  $handle = [IntPtr]$process.MainWindowHandle",
+    "  [ShortureWindowApi]::ShowWindowAsync($handle, 9) | Out-Null",
+    "  $isActive = $false",
+    "  for ($attempt = 0; $attempt -lt 4; $attempt++) {",
+    "    [ShortureWindowApi]::SetForegroundWindow($handle) | Out-Null",
+    "    Start-Sleep -Milliseconds 100",
+    "    if ([ShortureWindowApi]::GetForegroundWindow() -eq $handle) {",
+    "      $isActive = $true",
+    "      break",
+    "    }",
+    "  }",
+    "  if (-not $isActive) { throw 'Windows did not allow Shorture to bring the application window to the foreground. Try selecting it manually once, then retry.' }",
     "} catch {",
     "  [Console]::Error.WriteLine($_.Exception.ToString())",
     "  exit 1",
