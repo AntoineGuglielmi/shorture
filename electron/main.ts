@@ -1,38 +1,82 @@
-import { app, BrowserWindow, dialog, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain } from "electron";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomInt } from "node:crypto";
 import { createLocalServer, getLocalAddresses } from "./server";
-import { activateApplication, executeShortcut } from "./shortcuts";
-import type { GestureName, ShortcutAction, ShortcutFailure } from "./types";
+import { activateApplication, executeApplicationShortcut, getForegroundApplication } from "./shortcuts";
+import { createDefaultConfig, parseConfig } from "./config";
+import type { GestureName, ShortcutFailure, ShortureConfig } from "./types";
 
 let mainWindow: BrowserWindow | null = null;
-let targetPath: string | null = null;
+let config: ShortureConfig = createDefaultConfig();
 const pin = String(randomInt(100000, 999999));
+const configPath = () => path.join(app.getPath("userData"), "shorture.config.json");
 
-const actionByGesture: Record<GestureName, ShortcutAction> = {
-  "two-finger-swipe-left": "activate-vscode",
-  "two-finger-swipe-up": "activate-phpstorm",
-  "two-finger-swipe-right": "activate-chrome",
-  "two-finger-swipe-down": "activate-teams",
-  "two-finger-tap": "save",
-  "pinch-in": "undo",
-  "pinch-out": "command-palette"
-};
+async function loadConfig(): Promise<void> {
+  try {
+    const stored = await readFile(configPath(), "utf8");
+    config = parseConfig(JSON.parse(stored) as unknown);
+  } catch {
+    config = createDefaultConfig();
+    await saveConfig(config);
+  }
+}
+
+async function saveConfig(value: ShortureConfig): Promise<void> {
+  const folder = app.getPath("userData");
+  await mkdir(folder, { recursive: true });
+  await writeFile(configPath(), JSON.stringify(value, null, 2), "utf8");
+  config = value;
+}
+
+function getBindingLabel(gesture: GestureName): string {
+  const binding = config.bindings.find((item) => item.gesture === gesture && item.scope.type === "global");
+  if (binding?.action.type === "activate-application") return "activate-" + binding.action.application;
+  const appBinding = config.bindings.find((item) => item.gesture === gesture && item.scope.type === "application");
+  if (appBinding?.action.type === "keyboard-shortcut") return appBinding.action.shortcut;
+  return "unconfigured";
+}
 
 const localServer = createLocalServer(pin, {
   onGesture: async (gesture) => {
-    const action = actionByGesture[gesture];
-    if (action.startsWith("activate-")) {
-      await activateApplication(action.replace("activate-", "") as "vscode" | "phpstorm" | "chrome" | "teams");
+    const globalBinding = config.bindings.find((binding) =>
+      binding.scope.type === "global" && binding.gesture === gesture
+    );
+
+    if (globalBinding) {
+      if (globalBinding.action.type === "activate-application") {
+        await activateApplication(globalBinding.action.application);
+        return;
+      }
+      throw new Error("Cette action globale n’est pas encore prise en charge.");
+    }
+
+    const activeApplication = await getForegroundApplication();
+    if (!activeApplication) {
+      throw new Error("Aucune application cible reconnue n’est actuellement au premier plan.");
+    }
+
+    const binding = config.bindings.find((item) =>
+      item.scope.type === "application" &&
+      item.scope.application === activeApplication &&
+      item.gesture === gesture
+    );
+
+    if (!binding) {
+      throw new Error("Aucune action n’est configurée pour ce geste dans " + activeApplication + ".");
+    }
+
+    if (binding.action.type === "keyboard-shortcut") {
+      await executeApplicationShortcut(activeApplication, binding.action.shortcut);
       return;
     }
-    if (!targetPath) throw new Error("Choisis d’abord une application sur l’ordinateur.");
-    await executeShortcut(targetPath, action);
+
+    throw new Error("Type d’action non pris en charge.");
   },
   onError: (gesture, error) => {
     const failure: ShortcutFailure = {
       gesture,
-      action: actionByGesture[gesture],
+      action: getBindingLabel(gesture),
       message: error instanceof Error ? error.message : "Erreur inconnue.",
       details: error instanceof Error && error.stack ? error.stack : String(error),
       occurredAt: new Date().toISOString()
@@ -64,26 +108,18 @@ ipcMain.handle("desktop:get-info", () => ({
   addresses: getLocalAddresses(),
   port: localServer.port,
   pin,
-  targetPath
+  targetPath: null,
+  config
 }));
 
-ipcMain.handle("desktop:choose-application", async () => {
-  const result = await dialog.showOpenDialog({
-    title: "Choisir une application Windows",
-    properties: ["openFile"],
-    filters: [{ name: "Applications Windows", extensions: ["exe"] }]
-  });
-
-  if (result.canceled || result.filePaths.length === 0) return null;
-  targetPath = result.filePaths[0];
-  return targetPath;
-});
-
-ipcMain.handle("desktop:set-target", (_event, value: unknown) => {
-  targetPath = typeof value === "string" && value.length > 0 ? value : null;
+ipcMain.handle("desktop:save-config", async (_event, value: unknown) => {
+  const parsed = parseConfig(value);
+  await saveConfig(parsed);
+  return parsed;
 });
 
 app.whenReady().then(async () => {
+  await loadConfig();
   await localServer.start();
   await createWindow();
   app.on("activate", () => {
