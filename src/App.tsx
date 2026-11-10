@@ -187,11 +187,11 @@ function MobileApp() {
   const pointerMap = useRef(new Map<number, { x: number; y: number; startX: number; startY: number }>());
   const gestureStart = useRef<{ count: number; points: Array<{ x: number; y: number }>; time: number } | null>(null);
   const moved = useRef(false);
-  const swipeTriggered = useRef(false);
+  const touchPadRef = useRef<HTMLDivElement | null>(null);
+  const touchSwipe = useRef<{ identifiers: number[]; startY: number; triggered: boolean } | null>(null);
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
     pointerMap.current.set(event.pointerId, {
       x: event.clientX,
       y: event.clientY,
@@ -221,19 +221,6 @@ function MobileApp() {
     pointerMap.current.set(event.pointerId, { ...previous, x: event.clientX, y: event.clientY });
     setTouchDebug(`MOVE · ${event.pointerType} · ${pointerMap.current.size} contact(s) · ΔY ${Math.round(event.clientY - previous.startY)} px`);
 
-    // Recognize a three-finger swipe while all three contacts are still active.
-    // This avoids depending on the order/timing of pointerup events on Android.
-    const start = gestureStart.current;
-    if (start && start.count >= 3 && pointerMap.current.size >= 3 && !swipeTriggered.current) {
-      const averageStartY = start.points.reduce((sum, point) => sum + point.y, 0) / start.points.length;
-      const activePoints = [...pointerMap.current.values()];
-      const averageCurrentY = activePoints.reduce((sum, point) => sum + point.y, 0) / activePoints.length;
-
-      if (averageStartY - averageCurrentY > 45) {
-        swipeTriggered.current = true;
-        sendGesture("three-finger-swipe-up");
-      }
-    }
   };
 
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
@@ -252,15 +239,7 @@ function MobileApp() {
     const currentPoints = [...pointerMap.current.values()];
 
     if (start && startCount >= 2 && currentPoints.length >= 2) {
-      if (startCount >= 3) {
-        // Fallback for devices that deliver the final movement only with pointerup.
-        const averageStartY = start.points.reduce((sum, point) => sum + point.y, 0) / start.points.length;
-        const averageEndY = currentPoints.reduce((sum, point) => sum + point.y, 0) / currentPoints.length;
-        if (!swipeTriggered.current && averageStartY - averageEndY > 45) {
-          swipeTriggered.current = true;
-          sendGesture("three-finger-swipe-up");
-        }
-      } else if (startCount === 2) {
+      if (startCount === 2) {
         const startDistance = Math.hypot(start.points[0].x - start.points[1].x, start.points[0].y - start.points[1].y);
         const endDistance = Math.hypot(currentPoints[0].x - currentPoints[1].x, currentPoints[0].y - currentPoints[1].y);
         const delta = endDistance - startDistance;
@@ -276,6 +255,78 @@ function MobileApp() {
       swipeTriggered.current = false;
     }
   };
+
+  const onPointerCancel = (event: PointerEvent<HTMLDivElement>) => {
+    pointerMap.current.delete(event.pointerId);
+    gestureStart.current = null;
+    moved.current = false;
+    setTouchDebug(`POINTERCANCEL · ${event.pointerType} · ${pointerMap.current.size} contact(s) · geste annulé`);
+  };
+
+  useEffect(() => {
+    const pad = touchPadRef.current;
+    if (!pad) return;
+
+    const onTouchStart = (event: TouchEvent) => {
+      if (event.touches.length < 3) return;
+
+      if (event.cancelable) event.preventDefault();
+      const contacts = Array.from(event.touches).slice(0, 3);
+      touchSwipe.current = {
+        identifiers: contacts.map((touch) => touch.identifier),
+        startY: contacts.reduce((sum, touch) => sum + touch.clientY, 0) / contacts.length,
+        triggered: false
+      };
+      setTouchDebug(`TOUCHSTART · ${event.touches.length} contacts · suivi natif`);
+    };
+
+    const onTouchMove = (event: TouchEvent) => {
+      const gesture = touchSwipe.current;
+      if (!gesture || gesture.triggered) return;
+
+      if (event.cancelable) event.preventDefault();
+      const activeContacts = Array.from(event.touches).filter((touch) =>
+        gesture.identifiers.includes(touch.identifier)
+      );
+      if (activeContacts.length !== gesture.identifiers.length) return;
+
+      const currentY = activeContacts.reduce((sum, touch) => sum + touch.clientY, 0) / activeContacts.length;
+      const deltaY = gesture.startY - currentY;
+      setTouchDebug(`TOUCHMOVE · ${activeContacts.length} contacts · ΔY ${Math.round(deltaY)} px`);
+
+      if (deltaY > 45) {
+        gesture.triggered = true;
+        sendGesture("three-finger-swipe-up");
+        setTouchDebug(`SWIPE NATIF RECONNU · ΔY ${Math.round(deltaY)} px`);
+      }
+    };
+
+    const onTouchEnd = (event: TouchEvent) => {
+      if (!touchSwipe.current) return;
+      if (event.touches.length < 3) {
+        setTouchDebug(`TOUCHEND · ${event.touches.length} contact(s) restant(s)`);
+        touchSwipe.current = null;
+      }
+    };
+
+    const onTouchCancel = (event: TouchEvent) => {
+      if (!touchSwipe.current) return;
+      setTouchDebug(`TOUCHCANCEL · ${event.touches.length} contact(s) · système/navigateur a interrompu le geste`);
+      touchSwipe.current = null;
+    };
+
+    pad.addEventListener("touchstart", onTouchStart, { passive: false });
+    pad.addEventListener("touchmove", onTouchMove, { passive: false });
+    pad.addEventListener("touchend", onTouchEnd, { passive: false });
+    pad.addEventListener("touchcancel", onTouchCancel, { passive: false });
+
+    return () => {
+      pad.removeEventListener("touchstart", onTouchStart);
+      pad.removeEventListener("touchmove", onTouchMove);
+      pad.removeEventListener("touchend", onTouchEnd);
+      pad.removeEventListener("touchcancel", onTouchCancel);
+    };
+  }, [sendGesture]);
 
   return (
     <main className="mobile-shell">
@@ -304,7 +355,7 @@ function MobileApp() {
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
+            onPointerCancel={onPointerCancel}
           >
             <div className="touch-orbit orbit-one" />
             <div className="touch-orbit orbit-two" />
