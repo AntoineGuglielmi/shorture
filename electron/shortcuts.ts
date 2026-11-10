@@ -65,9 +65,9 @@ $items | Sort-Object executablePath -Unique | ConvertTo-Json -Compress -Depth 3
 function keySequence(shortcut: string): string {
   const parts = shortcut.split("+");
   if (parts.length === 2 && parts[0].toLowerCase() === parts[1].toLowerCase()) {
-    const standaloneModifiers: Record<string, string> = { ctrl: "{CTRL}", shift: "{SHIFT}", alt: "{ALT}" };
-    const standalone = standaloneModifiers[parts[0].toLowerCase()];
-    if (standalone) return standalone + standalone;
+    const standaloneModifiers: Record<string, number> = { ctrl: 0x11, shift: 0x10, alt: 0x12 };
+    const virtualKey = standaloneModifiers[parts[0].toLowerCase()];
+    if (virtualKey) return `__SHORTURE_DOUBLE_MODIFIER__:${virtualKey}`;
   }
   const key = parts.pop()?.toLowerCase();
   if (!key) throw new Error("Raccourci clavier invalide.");
@@ -79,11 +79,30 @@ function keySequence(shortcut: string): string {
 
 async function sendKeys(shortcut: string): Promise<void> {
   const sequence = keySequence(shortcut);
-  const script = [
-    "Add-Type -AssemblyName System.Windows.Forms",
-    "Start-Sleep -Milliseconds 120",
-    "[System.Windows.Forms.SendKeys]::SendWait('" + escapePowerShell(sequence) + "')"
-  ].join("\r\n");
+  const doubleModifier = sequence.startsWith("__SHORTURE_DOUBLE_MODIFIER__:")
+    ? Number(sequence.split(":")[1])
+    : null;
+  const script = doubleModifier
+    ? [
+        "Add-Type -TypeDefinition @'",
+        "using System;",
+        "using System.Runtime.InteropServices;",
+        "public static class ShortureKeyboardApi {",
+        " [DllImport(\\"user32.dll\\")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);",
+        "}",
+        "'@",
+        "$key = [byte]" + doubleModifier,
+        "[ShortureKeyboardApi]::keybd_event($key, 0, 0, [UIntPtr]::Zero)",
+        "[ShortureKeyboardApi]::keybd_event($key, 0, 2, [UIntPtr]::Zero)",
+        "Start-Sleep -Milliseconds 80",
+        "[ShortureKeyboardApi]::keybd_event($key, 0, 0, [UIntPtr]::Zero)",
+        "[ShortureKeyboardApi]::keybd_event($key, 0, 2, [UIntPtr]::Zero)"
+      ].join("\\r\\n")
+    : [
+        "Add-Type -AssemblyName System.Windows.Forms",
+        "Start-Sleep -Milliseconds 120",
+        "[System.Windows.Forms.SendKeys]::SendWait('" + escapePowerShell(sequence) + "')"
+      ].join("\\r\\n");
   try {
     await runPowerShell(script, 5000);
   } catch (error) {
