@@ -97,12 +97,12 @@ async function sendKeys(shortcut: string): Promise<void> {
         "Start-Sleep -Milliseconds 80",
         "[ShortureKeyboardApi]::keybd_event($key, 0, 0, [UIntPtr]::Zero)",
         "[ShortureKeyboardApi]::keybd_event($key, 0, 2, [UIntPtr]::Zero)"
-      ].join("\\r\\n")
+      ].join("\r\n")
     : [
         "Add-Type -AssemblyName System.Windows.Forms",
         "Start-Sleep -Milliseconds 120",
         "[System.Windows.Forms.SendKeys]::SendWait('" + escapePowerShell(sequence) + "')"
-      ].join("\\r\\n");
+      ].join("\r\n");
   try {
     await runPowerShell(script, 5000);
   } catch (error) {
