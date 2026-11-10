@@ -19,35 +19,44 @@ function escapePowerShell(value: string): string {
 /** Windows-only shortcut dispatch using an explicit allow-list of key sequences. */
 export async function executeShortcut(executablePath: string, action: ShortcutAction): Promise<void> {
   if (process.platform !== "win32") {
-    throw new Error("L'exécution des raccourcis est actuellement disponible uniquement sous Windows.");
+    throw new Error("Shortcut execution is currently available on Windows only.");
   }
 
   const processName = path.basename(executablePath, path.extname(executablePath));
   const safeName = escapePowerShell(processName);
   const safePath = escapePowerShell(executablePath);
   const keys = keySequences[action];
-  if (!keys) throw new Error("Raccourci non pris en charge.");
+  if (!keys) throw new Error("Unsupported shortcut.");
 
   const sendKeys = keys.map((sequence, index) => {
-    const wait = index === 0 && keys.length > 1 ? "Start-Sleep -Milliseconds 250; " : "";
+    const wait = index === 0 && keys.length > 1 ? "Start-Sleep -Milliseconds 250\r\n" : "";
     return wait + "[System.Windows.Forms.SendKeys]::SendWait('" + escapePowerShell(sequence) + "')";
-  }).join("; ");
+  }).join("\r\n");
 
+  // Keep the script multiline: joining PowerShell block delimiters with semicolons
+  // can produce parser errors around try/catch and localized strings.
   const script = [
     "$ErrorActionPreference = 'Stop'",
     "try {",
-    "$name = '" + safeName + "'",
-    "$target = '" + safePath + "'",
-    "$process = Get-Process -Name $name -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1",
-    "if (-not $process) { Start-Process -FilePath $target | Out-Null; Start-Sleep -Milliseconds 1400; $process = Get-Process -Name $name -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1 }",
-    "if (-not $process) { throw 'Impossible de trouver la fenêtre de l’application.' }",
-    "$shell = New-Object -ComObject WScript.Shell",
-    "if (-not $shell.AppActivate($process.Id)) { throw 'Impossible d’activer la fenêtre de l’application.' }",
-    "Start-Sleep -Milliseconds 180",
-    "Add-Type -AssemblyName System.Windows.Forms",
+    "  $name = '" + safeName + "'",
+    "  $target = '" + safePath + "'",
+    "  $process = Get-Process -Name $name -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1",
+    "  if (-not $process) {",
+    "    Start-Process -FilePath $target | Out-Null",
+    "    Start-Sleep -Milliseconds 1400",
+    "    $process = Get-Process -Name $name -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1",
+    "  }",
+    "  if (-not $process) { throw 'Target application window was not found.' }",
+    "  $shell = New-Object -ComObject WScript.Shell",
+    "  if (-not $shell.AppActivate($process.Id)) { throw 'Could not activate the target application window.' }",
+    "  Start-Sleep -Milliseconds 180",
+    "  Add-Type -AssemblyName System.Windows.Forms",
     sendKeys,
-    "} catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }"
-  ].join("; ");
+    "} catch {",
+    "  [Console]::Error.WriteLine($_.Exception.ToString())",
+    "  exit 1",
+    "}"
+  ].join("\r\n");
 
   const encoded = Buffer.from(script, "utf16le").toString("base64");
   try {
@@ -56,7 +65,7 @@ export async function executeShortcut(executablePath: string, action: ShortcutAc
     ], { windowsHide: true, timeout: 10000 });
   } catch (error) {
     const processError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
-    const details = processError.stderr?.trim() || processError.stdout?.trim() || processError.message || "Erreur PowerShell inconnue.";
-    throw new Error(`Impossible d'exécuter le raccourci « ${action} » : ${details}`);
+    const details = processError.stderr?.trim() || processError.stdout?.trim() || processError.message || "Unknown PowerShell error.";
+    throw new Error(`Shortcut "${action}" failed: ${details}`);
   }
 }
