@@ -369,7 +369,11 @@ function MobileApp() {
       startY: event.clientY
     });
     setTouchDebug(`DOWN · ${event.pointerType} · ${pointerMap.current.size} contact(s)`);
-    if (pointerMap.current.size === 1) {\n      gestureStart.current = { count: 1, points: [...pointerMap.current.values()].map((point) => ({ ...point })), time: Date.now() };\n      moved.current = false;\n    }\n    if (pointerMap.current.size >= 2) {
+    if (pointerMap.current.size === 1) {
+      gestureStart.current = { count: 1, points: [...pointerMap.current.values()].map((point) => ({ ...point })), time: Date.now() };
+      moved.current = false;
+    }
+    if (pointerMap.current.size >= 2) {
       gestureStart.current = {
         count: pointerMap.current.size,
         points: [...pointerMap.current.values()].map((point) => ({ ...point })),
@@ -407,7 +411,11 @@ function MobileApp() {
     });
     const currentPoints = [...pointerMap.current.values()];
 
-    if (start && startCount === 1 && currentPoints.length === 1 && !moved.current && Date.now() - start.time < 450) {\n      sendGesture("one-finger-tap");\n    }\n\n    if (start && startCount === 2 && currentPoints.length === 2) {
+    if (start && startCount === 1 && currentPoints.length === 1 && !moved.current && Date.now() - start.time < 450) {
+      sendGesture("one-finger-tap");
+    }
+
+    if (start && startCount === 2 && currentPoints.length === 2) {
       const startCenter = {
         x: (start.points[0].x + start.points[1].x) / 2,
         y: (start.points[0].y + start.points[1].y) / 2
