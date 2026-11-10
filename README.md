@@ -10,7 +10,7 @@ This repository contains the **first working Shorture prototype**. Its main purp
 
 The prototype currently allows you to:
 
-- launch a desktop application from Shorture or target an already running instance;
+- target an already running application window using a two-finger swipe;
 - connect a phone to the computer through a browser on the same local network;
 - detect a small set of multi-touch gestures;
 - send the corresponding action to the selected application;
@@ -25,7 +25,7 @@ Shorture consists of two interfaces:
 - **Desktop application**: an Electron application built with React and TypeScript. It lets you select the application to control and displays connection details.
 - **Mobile interface**: a touch-friendly web page opened in the phone's browser. No APK is required.
 
-Both interfaces communicate over the local Wi-Fi network using WebSocket. On Windows, the desktop application uses PowerShell, `WScript.Shell`, and `System.Windows.Forms.SendKeys` to activate the target window and send keystrokes.
+Both interfaces communicate over the local Wi-Fi network using WebSocket. On Windows, the desktop application uses PowerShell and `WScript.Shell` to activate application windows, and `System.Windows.Forms.SendKeys` to send keyboard shortcuts.
 
 ```text
 Phone (Chrome)
@@ -92,18 +92,19 @@ Once connected, the phone's touch surface is ready to receive gestures.
 
 ## Available gestures
 
-The following gestures are currently mapped to predefined shortcuts:
+The following gestures are currently mapped to predefined actions:
 
-| Gesture | Shortcut sent | Expected result |
-| --- | --- | --- |
-| Two-finger tap | `Ctrl + S` | Save the document |
-| Three-finger swipe up | `Ctrl + Shift + P`, then the `Terminal: Create New Terminal` command | Open the VS Code integrated terminal |
-| Pinch in | `Ctrl + Z` | Undo the last action |
-| Pinch out | `Ctrl + Shift + P` | Open the Command Palette |
+| Gesture | Action |
+| --- | --- |
+| Two-finger swipe left | Activate the VS Code window |
+| Two-finger swipe up | Activate the PhpStorm window |
+| Two-finger swipe right | Activate the Chrome window |
+| Two-finger swipe down | Activate the Microsoft Teams window |
+| Two-finger tap | Send `Ctrl + S` to the selected application |
+| Pinch in | Send `Ctrl + Z` to the selected application |
+| Pinch out | Send `Ctrl + Shift + P` to the selected application |
 
-Shortcuts are sent to the selected application's window. If no matching window is found, Shorture attempts to launch the application using the selected executable.
-
-> The terminal-opening gesture currently uses the English VS Code command label. It may therefore depend on the language configured in the editor.
+Application activation targets an already running window. If the application is not open, Shorture reports an error rather than launching an application whose installation path may vary. VS Code, PhpStorm, Chrome, and Microsoft Teams are matched using their Windows process names.
 
 ## Checks and useful commands
 
@@ -145,6 +146,7 @@ First, make sure dependency installation completed successfully. If the Electron
 
 - Windows only for shortcut execution.
 - Gesture and shortcut mappings are hard-coded.
+- Application activation currently requires the target application to be running.
 - No customizable control surfaces or actions yet.
 - Gesture detection depends on the browser and touch hardware.
 - Application selection and configuration are not persisted after closing the app.
