@@ -186,6 +186,7 @@ function MobileApp() {
   const pointerMap = useRef(new Map<number, { x: number; y: number; startX: number; startY: number }>());
   const gestureStart = useRef<{ count: number; points: Array<{ x: number; y: number }>; time: number } | null>(null);
   const moved = useRef(false);
+  const swipeTriggered = useRef(false);
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -203,17 +204,33 @@ function MobileApp() {
         time: Date.now()
       };
       moved.current = false;
+      swipeTriggered.current = false;
     }
   };
 
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const previous = pointerMap.current.get(event.pointerId);
     if (!previous) return;
-    // Measure cumulative movement from the initial contact, not event-to-event deltas.
+
+    // Keep the full gesture displacement, not only the latest event delta.
     if (Math.hypot(event.clientX - previous.startX, event.clientY - previous.startY) > 18) {
       moved.current = true;
     }
     pointerMap.current.set(event.pointerId, { ...previous, x: event.clientX, y: event.clientY });
+
+    // Recognize a three-finger swipe while all three contacts are still active.
+    // This avoids depending on the order/timing of pointerup events on Android.
+    const start = gestureStart.current;
+    if (start && start.count >= 3 && pointerMap.current.size >= 3 && !swipeTriggered.current) {
+      const averageStartY = start.points.reduce((sum, point) => sum + point.y, 0) / start.points.length;
+      const activePoints = [...pointerMap.current.values()];
+      const averageCurrentY = activePoints.reduce((sum, point) => sum + point.y, 0) / activePoints.length;
+
+      if (averageStartY - averageCurrentY > 45) {
+        swipeTriggered.current = true;
+        sendGesture("three-finger-swipe-up");
+      }
+    }
   };
 
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
@@ -231,11 +248,14 @@ function MobileApp() {
     const currentPoints = [...pointerMap.current.values()];
 
     if (start && startCount >= 2 && currentPoints.length >= 2) {
-      if (startCount >= 3 && moved.current) {
-        // Three-finger gestures take priority over pinch detection.
+      if (startCount >= 3) {
+        // Fallback for devices that deliver the final movement only with pointerup.
         const averageStartY = start.points.reduce((sum, point) => sum + point.y, 0) / start.points.length;
         const averageEndY = currentPoints.reduce((sum, point) => sum + point.y, 0) / currentPoints.length;
-        if (averageStartY - averageEndY > 45) sendGesture("three-finger-swipe-up");
+        if (!swipeTriggered.current && averageStartY - averageEndY > 45) {
+          swipeTriggered.current = true;
+          sendGesture("three-finger-swipe-up");
+        }
       } else if (startCount === 2) {
         const startDistance = Math.hypot(start.points[0].x - start.points[1].x, start.points[0].y - start.points[1].y);
         const endDistance = Math.hypot(currentPoints[0].x - currentPoints[1].x, currentPoints[0].y - currentPoints[1].y);
@@ -247,7 +267,10 @@ function MobileApp() {
     }
 
     pointerMap.current.delete(event.pointerId);
-    if (pointerMap.current.size < 2) gestureStart.current = null;
+    if (pointerMap.current.size < 2) {
+      gestureStart.current = null;
+      swipeTriggered.current = false;
+    }
   };
 
   return (
