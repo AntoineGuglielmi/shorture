@@ -191,21 +191,25 @@ function MobileApp() {
 
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
     const start = gestureStart.current;
-    const currentPoints = [...pointerMap.current.values()];
     const startCount = start?.count ?? pointerMap.current.size;
 
-    if (start && startCount >= 2 && currentPoints.length >= 2) {
-      const startDistance = Math.hypot(start.points[0].x - start.points[1].x, start.points[0].y - start.points[1].y);
-      const endDistance = Math.hypot(currentPoints[0].x - currentPoints[1].x, currentPoints[0].y - currentPoints[1].y);
-      const delta = endDistance - startDistance;
+    // Include the final pointer position: some devices do not emit a last pointermove.
+    pointerMap.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const currentPoints = [...pointerMap.current.values()];
 
-      if (Math.abs(delta) > 45) sendGesture(delta < 0 ? "pinch-in" : "pinch-out");
-      else if (startCount >= 3 && moved.current) {
+    if (start && startCount >= 2 && currentPoints.length >= 2) {
+      if (startCount >= 3 && moved.current) {
+        // Three-finger gestures take priority over pinch detection.
         const averageStartY = start.points.reduce((sum, point) => sum + point.y, 0) / start.points.length;
         const averageEndY = currentPoints.reduce((sum, point) => sum + point.y, 0) / currentPoints.length;
         if (averageStartY - averageEndY > 45) sendGesture("three-finger-swipe-up");
-      } else if (startCount === 2 && !moved.current && Date.now() - start.time < 450) {
-        sendGesture("two-finger-tap");
+      } else if (startCount === 2) {
+        const startDistance = Math.hypot(start.points[0].x - start.points[1].x, start.points[0].y - start.points[1].y);
+        const endDistance = Math.hypot(currentPoints[0].x - currentPoints[1].x, currentPoints[0].y - currentPoints[1].y);
+        const delta = endDistance - startDistance;
+
+        if (Math.abs(delta) > 45) sendGesture(delta < 0 ? "pinch-in" : "pinch-out");
+        else if (!moved.current && Date.now() - start.time < 450) sendGesture("two-finger-tap");
       }
     }
 
