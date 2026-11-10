@@ -35,6 +35,7 @@ export async function executeShortcut(executablePath: string, action: ShortcutAc
 
   const script = [
     "$ErrorActionPreference = 'Stop'",
+    "try {",
     "$name = '" + safeName + "'",
     "$target = '" + safePath + "'",
     "$process = Get-Process -Name $name -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1",
@@ -44,7 +45,8 @@ export async function executeShortcut(executablePath: string, action: ShortcutAc
     "if (-not $shell.AppActivate($process.Id)) { throw 'Impossible d’activer la fenêtre de l’application.' }",
     "Start-Sleep -Milliseconds 180",
     "Add-Type -AssemblyName System.Windows.Forms",
-    sendKeys
+    sendKeys,
+    "} catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }"
   ].join("; ");
 
   const encoded = Buffer.from(script, "utf16le").toString("base64");
