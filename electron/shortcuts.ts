@@ -117,7 +117,7 @@ export async function activateApplication(application: InstalledApplication, tog
     "$wasMinimized = [ShortureWindowApi]::IsIconic($handle)",
     "$wasAlreadyForeground = ([ShortureWindowApi]::GetForegroundWindow() -eq $handle)",
     "if ($wasMinimized) { [ShortureWindowApi]::ShowWindowAsync($handle, 9) | Out-Null }",
-    "elseif ($wasAlreadyForeground -and " + (toggleIfFocused ? "true" : "false") + ") {",
+    "elseif ($wasAlreadyForeground -and " + (toggleIfFocused ? "$true" : "$false") + ") {",
     " if ([ShortureWindowApi]::IsZoomed($handle)) { [ShortureWindowApi]::ShowWindowAsync($handle, 9) | Out-Null }",
     " else { [ShortureWindowApi]::ShowWindowAsync($handle, 3) | Out-Null }",
     "}",
