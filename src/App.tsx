@@ -1,23 +1,19 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { PointerEvent } from "react";
-import type { DesktopInfo, GestureBinding, GestureName, ShortureConfig, ShortcutFailure, TargetApplication } from "../electron/types";
-import { applications, gestures } from "../electron/config";
+import type { ContextApp, DesktopInfo, GestureCommand, GestureName, InstalledApplication, ShortureConfig, ShortcutFailure } from "../electron/types";
+import { gestures } from "../electron/config";
 import { QRCodeSVG } from "qrcode.react";
 
-type ServerMessage = {
-  type: "connected" | "executed" | "error";
-  message?: string;
-  gesture?: GestureName;
-};
-
+type ServerMessage = { type: "connected" | "executed" | "error"; message?: string; gesture?: GestureName };
 const gestureLabels: Record<GestureName, string> = {
-  "two-finger-tap": "Double appui à deux doigts",
-  "two-finger-swipe-left": "Glissement de deux doigts vers la gauche",
-  "two-finger-swipe-right": "Glissement de deux doigts vers la droite",
-  "two-finger-swipe-up": "Glissement de deux doigts vers le haut",
-  "two-finger-swipe-down": "Glissement de deux doigts vers le bas",
-  "pinch-in": "Pincement (rapprocher)",
-  "pinch-out": "Pincement (écarter)"
+  "one-finger-tap": "Tap à un doigt",
+  "two-finger-tap": "Tap à deux doigts",
+  "two-finger-swipe-left": "Glisser à gauche",
+  "two-finger-swipe-right": "Glisser à droite",
+  "two-finger-swipe-up": "Glisser vers le haut",
+  "two-finger-swipe-down": "Glisser vers le bas",
+  "pinch-in": "Pincer (rapprocher)",
+  "pinch-out": "Pincer (écarter)"
 };
 
 function DesktopApp() {
@@ -26,32 +22,36 @@ function DesktopApp() {
   const [error, setError] = useState<string | null>(null);
   const [shortcutFailure, setShortcutFailure] = useState<ShortcutFailure | null>(null);
   const [saveMessage, setSaveMessage] = useState("");
-  const [scopeType, setScopeType] = useState<"global" | "application">("application");
-  const [scopeApplication, setScopeApplication] = useState<TargetApplication>("vscode");
-  const [gesture, setGesture] = useState<GestureName>("two-finger-tap");
-  const [actionApplication, setActionApplication] = useState<TargetApplication>("vscode");
-  const [shortcut, setShortcut] = useState("Ctrl+S");
+  const [selectedContextId, setSelectedContextId] = useState<string | null>(null);
+  const [newContextApplicationId, setNewContextApplicationId] = useState("");
+  const [scope, setScope] = useState<"global" | "application">("global");
+  const [fingers, setFingers] = useState<1 | 2>(2);
+  const [gesture, setGesture] = useState<GestureName>("two-finger-swipe-right");
+  const [globalAction, setGlobalAction] = useState<"activate-application" | "windows-shortcut">("activate-application");
+  const [actionApplicationId, setActionApplicationId] = useState("");
+  const [shortcut, setShortcut] = useState("Ctrl+N");
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      const desktopInfo = await window.shorture.getDesktopInfo();
-      setInfo(desktopInfo);
-      setConfig(desktopInfo.config);
+      const result = await window.shorture.getDesktopInfo();
+      setInfo(result);
+      setConfig(result.config);
       setError(null);
+      setNewContextApplicationId(result.installedApplications[0]?.id ?? "");
+      setActionApplicationId(result.installedApplications[0]?.id ?? "");
     } catch {
       setError("Impossible de récupérer les informations de l’application.");
     }
   }, []);
-
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => window.shorture.onShortcutError(setShortcutFailure), []);
 
-  const persistConfig = async (next: ShortureConfig): Promise<boolean> => {
+  const persist = async (next: ShortureConfig): Promise<boolean> => {
     try {
       const saved = await window.shorture.saveConfig(next);
       setConfig(saved);
-      setSaveMessage("Configuration enregistrée sur cet ordinateur.");
+      setSaveMessage("Configuration enregistrée.");
       setError(null);
       return true;
     } catch (cause) {
@@ -61,89 +61,102 @@ function DesktopApp() {
     }
   };
 
-  const resetForm = () => {
+  const resetEditor = () => {
     setEditingId(null);
-    setScopeType("application");
-    setScopeApplication("vscode");
-    setGesture("two-finger-tap");
-    setActionApplication("vscode");
-    setShortcut("Ctrl+S");
+    setFingers(scope === "global" ? 2 : 1);
+    setGesture(scope === "global" ? "two-finger-swipe-right" : "one-finger-tap");
+    setShortcut("Ctrl+N");
+    setGlobalAction("activate-application");
   };
 
-  const editBinding = (binding: GestureBinding) => {
-    setEditingId(binding.id);
-    setGesture(binding.gesture);
-    if (binding.scope.type === "global") {
-      setScopeType("global");
-      if (binding.action.type === "activate-application") setActionApplication(binding.action.application);
+  const editCommand = (command: GestureCommand, commandScope: "global" | "application") => {
+    setScope(commandScope);
+    setEditingId(command.id);
+    setFingers(command.fingers);
+    setGesture(command.gesture);
+    if (command.action.type === "activate-application") {
+      setGlobalAction("activate-application");
+      setActionApplicationId(command.action.applicationId);
     } else {
-      setScopeType("application");
-      setScopeApplication(binding.scope.application);
-      if (binding.action.type === "keyboard-shortcut") setShortcut(binding.action.shortcut);
+      setGlobalAction("windows-shortcut");
+      setShortcut(command.action.shortcut);
     }
-    document.getElementById("binding-editor")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    document.getElementById("command-editor")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
-  const submitBinding = async (event: FormEvent<HTMLFormElement>) => {
+  const saveCommand = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!config) return;
-
-    const binding: GestureBinding = {
-      id: editingId ?? `binding-${Date.now()}`,
-      fingers: 2,
+    const command: GestureCommand = {
+      id: editingId ?? crypto.randomUUID(),
+      fingers,
       gesture,
-      scope: scopeType === "global"
-        ? { type: "global" }
-        : { type: "application", application: scopeApplication },
-      action: scopeType === "global"
-        ? { type: "activate-application", application: actionApplication }
+      action: scope === "global"
+        ? globalAction === "activate-application"
+          ? { type: "activate-application", applicationId: actionApplicationId }
+          : { type: "windows-shortcut", shortcut: shortcut.trim() }
         : { type: "keyboard-shortcut", shortcut: shortcut.trim() }
     };
-
-    const nextBindings = config.bindings.filter((item) =>
-      item.id !== editingId &&
-      !(item.gesture === gesture && (
-        scopeType === "global"
-          ? item.scope.type === "global"
-          : item.scope.type === "application" && item.scope.application === scopeApplication
-      ))
-    );
-    if (await persistConfig({ bindings: [...nextBindings, binding] })) resetForm();
+    let next: ShortureConfig;
+    if (scope === "global") {
+      next = {
+        ...config,
+        globalCommands: [
+          ...config.globalCommands.filter((item) => item.id !== editingId && item.gesture !== gesture),
+          command
+        ]
+      };
+    } else {
+      next = {
+        ...config,
+        contextApps: config.contextApps.map((context) => context.id !== selectedContextId ? context : {
+          ...context,
+          commands: [...context.commands.filter((item) => item.id !== editingId && item.gesture !== gesture), command]
+        })
+      };
+    }
+    if (await persist(next)) resetEditor();
   };
 
-  const deleteBinding = async (id: string) => {
+  const deleteCommand = async (id: string, commandScope: "global" | "application") => {
     if (!config) return;
-    await persistConfig({ bindings: config.bindings.filter((binding) => binding.id !== id) });
-    if (editingId === id) resetForm();
+    const next = commandScope === "global"
+      ? { ...config, globalCommands: config.globalCommands.filter((item) => item.id !== id) }
+      : { ...config, contextApps: config.contextApps.map((context) => context.id !== selectedContextId ? context : {
+          ...context, commands: context.commands.filter((item) => item.id !== id)
+        }) };
+    if (await persist(next) && editingId === id) resetEditor();
   };
 
-  const appLabel = (id: TargetApplication) => applications.find((item) => item.id === id)?.label ?? id;
-  const gestureLabel = (id: GestureName) => gestures.find((item) => item.id === id)?.label ?? id;
-  const describeAction = (binding: GestureBinding) => binding.action.type === "activate-application"
-    ? `Activer ${appLabel(binding.action.application)}`
-    : binding.action.shortcut;
+  const addContextApp = async () => {
+    if (!config || !info || !newContextApplicationId) return;
+    const application = info.installedApplications.find((item) => item.id === newContextApplicationId);
+    if (!application || config.contextApps.some((item) => item.application.id === application.id)) return;
+    const context: ContextApp = { id: crypto.randomUUID(), application, commands: [] };
+    if (await persist({ ...config, contextApps: [...config.contextApps, context] })) setSelectedContextId(context.id);
+  };
 
+  const selectedContext = config?.contextApps.find((item) => item.id === selectedContextId) ?? null;
+  const availableApps = info?.installedApplications.filter((application) =>
+    !config?.contextApps.some((context) => context.application.id === application.id)
+  ) ?? [];
+  const eligibleGestures = gestures.filter((item) => item.fingers === fingers);
   const mobileUrls = info?.addresses.map((address) => `http://${address}:5173/mobile`) ?? [];
-  const pairingUrl = mobileUrls[0] && info?.pin
-    ? `${mobileUrls[0]}?pin=${encodeURIComponent(info.pin)}`
-    : null;
-  const globalBindings = config?.bindings.filter((binding) => binding.scope.type === "global") ?? [];
+  const pairingUrl = mobileUrls[0] && info?.pin ? `${mobileUrls[0]}?pin=${encodeURIComponent(info.pin)}` : null;
+  const applicationName = (id: string) => info?.installedApplications.find((item) => item.id === id)?.name ?? id;
 
   return (
     <main className="desktop-shell">
       <header className="topbar">
         <a className="wordmark" href="/">shorture<span>.</span></a>
-        <span className="version">PROTOYPE 001</span>
+        <span className="version">PROTOTYPE 001</span>
       </header>
-
       <section className="intro">
         <p className="eyebrow">TOUCH INPUT / DESKTOP ACTIONS</p>
         <h1>Un geste.<br /><span>Une action.</span></h1>
         <p className="lead">Ton téléphone devient une surface de commandes configurable pour ton ordinateur.</p>
       </section>
-
       {error && <p className="notice error">{error}</p>}
-
       {shortcutFailure && (
         <section className="panel" style={{ marginTop: 24, padding: 20, border: "1px solid #b85c5c" }}>
           <p className="eyebrow">ERREUR D’ACTION · {shortcutFailure.action}</p>
@@ -151,154 +164,138 @@ function DesktopApp() {
           <p className="muted">{shortcutFailure.message}</p>
           <p className="muted">{new Date(shortcutFailure.occurredAt).toLocaleString()}</p>
           <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 220, overflow: "auto", padding: 12, background: "#090a0c", color: "#f0f0f0" }}>{shortcutFailure.details}</pre>
-          <div style={{ display: "flex", gap: 12 }}>
-            <button className="button secondary" onClick={() => void navigator.clipboard.writeText(JSON.stringify(shortcutFailure, null, 2))}>Copier le diagnostic complet</button>
-            <button className="text-button" onClick={() => setShortcutFailure(null)}>Effacer</button>
-          </div>
+          <button className="text-button" onClick={() => setShortcutFailure(null)}>Effacer</button>
         </section>
       )}
-
       <section className="connection-grid">
         <article className="panel connection-panel">
           <p className="eyebrow">01 / CONNEXION LOCALE</p>
           <h2>Connecte ton téléphone</h2>
-          <p className="muted">Scanne ce QR code avec l’appareil photo de ton téléphone. Le PC et le mobile doivent être sur le même réseau Wi-Fi.</p>
-          {pairingUrl && (
-            <div className="pairing-qr">
-              <QRCodeSVG value={pairingUrl} size={184} level="M" includeMargin />
-              <span>SCANNE POUR TE CONNECTER</span>
-            </div>
-          )}
+          <p className="muted">Scanne ce QR code. Le PC et le mobile doivent être sur le même réseau Wi-Fi.</p>
+          {pairingUrl && <div className="pairing-qr"><QRCodeSVG value={pairingUrl} size={184} level="M" includeMargin /><span>SCANNE POUR TE CONNECTER</span></div>}
           <p className="muted">Ou ouvre l’adresse manuellement :</p>
-          {mobileUrls.length > 0
-            ? mobileUrls.map((url) => <p className="address" key={url}>{url}</p>)
-            : <p className="notice">Aucune adresse réseau détectée. Vérifie que le Wi-Fi est activé.</p>}
-          <div className="pin-block">
-            <span className="muted">CODE D’APPAIRAGE</span>
-            <strong>{info?.pin ?? "------"}</strong>
-          </div>
-          <p className="hint">Si Windows affiche une demande de pare-feu, autorise l’accès sur les réseaux privés.</p>
+          {mobileUrls.map((url) => <p className="address" key={url}>{url}</p>)}
+          <div className="pin-block"><span className="muted">CODE D’APPAIRAGE</span><strong>{info?.pin ?? "------"}</strong></div>
         </article>
-
         <article className="panel mapping-panel">
-          <p className="eyebrow">02 / LOGIQUE DE CONFIGURATION</p>
+          <p className="eyebrow">02 / ORGANISATION</p>
           <h2>Deux niveaux de commandes</h2>
           <div className="logic-explainer">
-            <div><strong>Global</strong><span>Le geste agit sur le bureau, quelle que soit l’application au premier plan.</span></div>
-            <div><strong>Par application</strong><span>Le geste déclenche une commande uniquement dans l’application actuellement active.</span></div>
+            <div><strong>Globales</strong><span>Déclenchées quelle que soit la fenêtre active.</span></div>
+            <div><strong>Associées à une application</strong><span>Déclenchées uniquement lorsque cette application est au premier plan.</span></div>
           </div>
-          <p className="hint">Les gestes globaux sont prioritaires lorsqu’un même geste existe dans les deux contextes.</p>
+          <p className="hint">Les commandes globales sont prioritaires. La détection automatique repose sur les raccourcis du menu Démarrer Windows.</p>
         </article>
       </section>
 
       <section className="configuration-section">
         <div className="section-heading">
-          <div>
-            <p className="eyebrow">03 / COMMANDES GLOBALES</p>
-            <h2>Indépendantes de l’application</h2>
-          </div>
-          <span className="count">{globalBindings.length} association(s)</span>
+          <div><p className="eyebrow">03 / COMMANDES GLOBALES</p><h2>Indépendantes de l’application</h2></div>
+          <span className="count">{config?.globalCommands.length ?? 0} commande(s)</span>
         </div>
         <div className="binding-list">
-          {globalBindings.length === 0 && <p className="empty-state">Aucun geste global configuré.</p>}
-          {globalBindings.map((binding) => (
-            <article className="binding-row" key={binding.id}>
-              <div className="binding-gesture"><span>2 DOIGTS</span><strong>{gestureLabel(binding.gesture)}</strong></div>
-              <div className="binding-action"><span>FONCTIONNALITÉ</span><strong>{describeAction(binding)}</strong></div>
+          {!config?.globalCommands.length && <p className="empty-state">Aucune commande globale configurée.</p>}
+          {config?.globalCommands.map((command) => (
+            <article className="binding-row" key={command.id}>
+              <div className="binding-gesture"><span>{command.fingers} DOIGT{command.fingers > 1 ? "S" : ""}</span><strong>{gestureLabels[command.gesture]}</strong></div>
+              <div className="binding-action"><span>FONCTIONNALITÉ</span><strong>{command.action.type === "activate-application" ? `Ouvrir / activer ${applicationName(command.action.applicationId)}` : command.action.shortcut}</strong></div>
               <div className="binding-controls">
-                <button className="text-button" onClick={() => editBinding(binding)}>Modifier</button>
-                <button className="text-button danger-text" onClick={() => void deleteBinding(binding.id)}>Supprimer</button>
+                <button className="text-button" onClick={() => editCommand(command, "global")}>Modifier</button>
+                <button className="text-button danger-text" onClick={() => void deleteCommand(command.id, "global")}>Supprimer</button>
               </div>
             </article>
           ))}
         </div>
+        <button className="button secondary" style={{ marginTop: 18 }} onClick={() => { setScope("global"); resetEditor(); document.getElementById("command-editor")?.scrollIntoView({ behavior: "smooth" }); }}>Ajouter une commande globale</button>
       </section>
 
       <section className="configuration-section">
         <div className="section-heading">
-          <div>
-            <p className="eyebrow">04 / COMMANDES CONTEXTUELLES</p>
-            <h2>Associées à une application</h2>
-          </div>
+          <div><p className="eyebrow">04 / CONTEXTAPPS</p><h2>Associées à une application</h2></div>
         </div>
-        {applications.map((application) => {
-          const items = config?.bindings.filter((binding) =>
-            binding.scope.type === "application" && binding.scope.application === application.id
-          ) ?? [];
-          return (
-            <div className="application-bindings" key={application.id}>
-              <div className="application-bindings-heading"><h3>{application.label}</h3><span>{items.length} commande(s)</span></div>
-              {items.length === 0 && <p className="empty-state">Aucune commande configurée.</p>}
-              {items.map((binding) => (
-                <article className="binding-row compact" key={binding.id}>
-                  <div className="binding-gesture"><span>2 DOIGTS</span><strong>{gestureLabel(binding.gesture)}</strong></div>
-                  <div className="binding-action"><span>RACCOURCI CLAVIER</span><strong><kbd>{describeAction(binding)}</kbd></strong></div>
-                  <div className="binding-controls">
-                    <button className="text-button" onClick={() => editBinding(binding)}>Modifier</button>
-                    <button className="text-button danger-text" onClick={() => void deleteBinding(binding.id)}>Supprimer</button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          );
-        })}
+        <div className="application-picker">
+          <select aria-label="Application installée" value={newContextApplicationId} onChange={(event) => setNewContextApplicationId(event.target.value)}>
+            <option value="">Choisir une application installée…</option>
+            {availableApps.map((application) => <option key={application.id} value={application.id}>{application.name}</option>)}
+          </select>
+          <button className="button secondary" disabled={!newContextApplicationId} onClick={() => void addContextApp()}>Ajouter l’application</button>
+        </div>
+        {!config?.contextApps.length && <p className="empty-state">Aucune application configurée. Ajoute une application détectée sur cet ordinateur.</p>}
+        <div className="context-app-list">
+          {config?.contextApps.map((context) => (
+            <button key={context.id} className={selectedContextId === context.id ? "context-app-card selected" : "context-app-card"} onClick={() => { setSelectedContextId(context.id); setScope("application"); resetEditor(); }}>
+              <span><strong>{context.application.name}</strong><small>{context.commands.length} commande(s)</small></span>
+              <span aria-hidden="true">↗</span>
+            </button>
+          ))}
+        </div>
       </section>
 
-      <section className="panel editor-panel" id="binding-editor">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">05 / ÉDITEUR D’ASSOCIATION</p>
-            <h2>{editingId ? "Modifier une commande" : "Ajouter une commande"}</h2>
+      {selectedContext && (
+        <section className="configuration-section context-detail">
+          <div className="section-heading">
+            <div><p className="eyebrow">05 / CONTEXTAPP</p><h2>{selectedContext.application.name}</h2></div>
+            <button className="text-button danger-text" onClick={() => {
+              if (!config) return;
+              void persist({ ...config, contextApps: config.contextApps.filter((item) => item.id !== selectedContext.id) }).then((ok) => { if (ok) setSelectedContextId(null); });
+            }}>Retirer l’application</button>
           </div>
-          {editingId && <button className="text-button" onClick={resetForm}>Annuler la modification</button>}
+          {!selectedContext.commands.length && <p className="empty-state">Aucune commande dans cette application.</p>}
+          {selectedContext.commands.map((command) => (
+            <article className="binding-row" key={command.id}>
+              <div className="binding-gesture"><span>{command.fingers} DOIGT{command.fingers > 1 ? "S" : ""}</span><strong>{gestureLabels[command.gesture]}</strong></div>
+              <div className="binding-action"><span>FONCTIONNALITÉ</span><strong><kbd>{command.action.type === "keyboard-shortcut" ? command.action.shortcut : "—"}</kbd></strong></div>
+              <div className="binding-controls">
+                <button className="text-button" onClick={() => editCommand(command, "application")}>Modifier</button>
+                <button className="text-button danger-text" onClick={() => void deleteCommand(command.id, "application")}>Supprimer</button>
+              </div>
+            </article>
+          ))}
+          <button className="button secondary" style={{ marginTop: 18 }} onClick={() => { setScope("application"); resetEditor(); document.getElementById("command-editor")?.scrollIntoView({ behavior: "smooth" }); }}>Ajouter une commande</button>
+        </section>
+      )}
+
+      <section className="panel editor-panel" id="command-editor">
+        <div className="section-heading">
+          <div><p className="eyebrow">06 / ÉDITEUR DE COMMANDE</p><h2>{editingId ? "Modifier la commande" : "Nouvelle commande"}</h2></div>
+          {editingId && <button className="text-button" onClick={resetEditor}>Annuler</button>}
         </div>
-        <form className="binding-form" onSubmit={(event) => void submitBinding(event)}>
-          <label>
-            <span>Contexte</span>
-            <select value={scopeType} onChange={(event) => setScopeType(event.target.value as "global" | "application")}>
-              <option value="global">Global — indépendant de l’application</option>
-              <option value="application">Application active</option>
+        <form className="binding-form" onSubmit={(event) => void saveCommand(event)}>
+          <label><span>Contexte</span>
+            <select value={scope} onChange={(event) => { setScope(event.target.value as "global" | "application"); setEditingId(null); setFingers(event.target.value === "global" ? 2 : 1); setGesture(event.target.value === "global" ? "two-finger-swipe-right" : "one-finger-tap"); }}>
+              <option value="global">Global</option><option value="application" disabled={!selectedContext}>Application sélectionnée</option>
             </select>
           </label>
-          {scopeType === "application" ? (
-            <label>
-              <span>Application cible</span>
-              <select value={scopeApplication} onChange={(event) => setScopeApplication(event.target.value as TargetApplication)}>
-                {applications.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}
-              </select>
-            </label>
-          ) : (
-            <label>
-              <span>Fenêtre à activer</span>
-              <select value={actionApplication} onChange={(event) => setActionApplication(event.target.value as TargetApplication)}>
-                {applications.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}
-              </select>
-            </label>
-          )}
-          <label>
-            <span>Geste (2 doigts)</span>
+          <label><span>Nombre de doigts</span>
+            <select value={fingers} onChange={(event) => { const count = Number(event.target.value) as 1 | 2; setFingers(count); setGesture(count === 1 ? "one-finger-tap" : "two-finger-tap"); }}>
+              <option value={1}>1 doigt</option><option value={2}>2 doigts</option>
+            </select>
+          </label>
+          <label><span>Geste</span>
             <select value={gesture} onChange={(event) => setGesture(event.target.value as GestureName)}>
-              {gestures.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}
+              {eligibleGestures.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
             </select>
           </label>
-          {scopeType === "application" && (
-            <label>
-              <span>Raccourci clavier</span>
-              <input value={shortcut} onChange={(event) => setShortcut(event.target.value)} placeholder="Ctrl+Shift+P" required />
-              <small>Format : Ctrl, Alt ou Shift, puis une touche. Exemple : Ctrl+S.</small>
+          {scope === "global" ? <>
+            <label><span>Fonctionnalité</span>
+              <select value={globalAction} onChange={(event) => setGlobalAction(event.target.value as "activate-application" | "windows-shortcut")}>
+                <option value="activate-application">Ouvrir / activer une application</option><option value="windows-shortcut">Raccourci Windows</option>
+              </select>
             </label>
-          )}
+            {globalAction === "activate-application" ? <label><span>Application à activer</span>
+              <select value={actionApplicationId} onChange={(event) => setActionApplicationId(event.target.value)} required>
+                <option value="">Choisir une application…</option>
+                {info?.installedApplications.map((application) => <option key={application.id} value={application.id}>{application.name}</option>)}
+              </select>
+            </label> : <label><span>Raccourci Windows</span><input value={shortcut} onChange={(event) => setShortcut(event.target.value)} placeholder="Ctrl+Shift+Esc" required /></label>}
+          </> : <label><span>Raccourci clavier dans l’application</span><input value={shortcut} onChange={(event) => setShortcut(event.target.value)} placeholder="Ctrl+N" required /></label>}
           <div className="form-actions">
-            <button className="button primary" type="submit">{editingId ? "Enregistrer les modifications" : "Ajouter l’association"}</button>
+            <button className="button primary" type="submit" disabled={scope === "application" && !selectedContext}>{editingId ? "Enregistrer" : "Ajouter la commande"}</button>
             {saveMessage && <span className="save-message">{saveMessage}</span>}
           </div>
         </form>
       </section>
-
-      <footer className="footer">
-        <span>SHORTURE / PREMIER PROTOTYPE</span>
-        <button className="text-button" onClick={() => void refresh()}>Recharger la configuration</button>
-      </footer>
+      <footer className="footer"><span>SHORTURE / PREMIER PROTOTYPE</span><button className="text-button" onClick={() => void refresh()}>Recharger la configuration</button></footer>
     </main>
   );
 }
@@ -372,7 +369,7 @@ function MobileApp() {
       startY: event.clientY
     });
     setTouchDebug(`DOWN · ${event.pointerType} · ${pointerMap.current.size} contact(s)`);
-    if (pointerMap.current.size >= 2) {
+    if (pointerMap.current.size === 1) {\n      gestureStart.current = { count: 1, points: [...pointerMap.current.values()].map((point) => ({ ...point })), time: Date.now() };\n      moved.current = false;\n    }\n    if (pointerMap.current.size >= 2) {
       gestureStart.current = {
         count: pointerMap.current.size,
         points: [...pointerMap.current.values()].map((point) => ({ ...point })),
@@ -410,7 +407,7 @@ function MobileApp() {
     });
     const currentPoints = [...pointerMap.current.values()];
 
-    if (start && startCount === 2 && currentPoints.length === 2) {
+    if (start && startCount === 1 && currentPoints.length === 1 && !moved.current && Date.now() - start.time < 450) {\n      sendGesture("one-finger-tap");\n    }\n\n    if (start && startCount === 2 && currentPoints.length === 2) {
       const startCenter = {
         x: (start.points[0].x + start.points[1].x) / 2,
         y: (start.points[0].y + start.points[1].y) / 2
@@ -489,7 +486,7 @@ function MobileApp() {
             <div className="touch-center">
               <span className="touch-cross">＋</span>
               <strong>TOUCHE ICI</strong>
-              <small>2 doigts · glisse · pince</small>
+              <small>1 doigt · 2 doigts · glisse · pince</small>
             </div>
           </div>
           <div className="mobile-feedback">
