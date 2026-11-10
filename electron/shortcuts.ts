@@ -158,9 +158,9 @@ export async function getForegroundProcessName(): Promise<string | null> {
     "}",
     "'@",
     "$handle = [ShortureForegroundApi]::GetForegroundWindow()",
-    "$processId = [uint32]0",
-    "[ShortureForegroundApi]::GetWindowThreadProcessId($handle, [ref]$processId) | Out-Null",
-    "if ($processId -ne 0) { (Get-Process -Id $processId -ErrorAction SilentlyContinue).ProcessName }"
+    "$targetProcessId = [uint32]0",
+    "[ShortureForegroundApi]::GetWindowThreadProcessId($handle, [ref]$targetProcessId) | Out-Null",
+    "if ($targetProcessId -ne 0) { (Get-Process -Id $targetProcessId -ErrorAction SilentlyContinue).ProcessName }"
   ].join("\r\n");
   try { return (await runPowerShell(script, 5000)).toLowerCase() || null; }
   catch { return null; }
