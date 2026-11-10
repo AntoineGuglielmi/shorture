@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { PointerEvent } from "react";
 import type { DesktopInfo, GestureBinding, GestureName, ShortureConfig, ShortcutFailure, TargetApplication } from "../electron/types";
 import { applications, gestures } from "../electron/config";
@@ -82,7 +82,7 @@ function DesktopApp() {
     document.getElementById("binding-editor")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
-  const submitBinding = async (event: React.FormEvent<HTMLFormElement>) => {
+  const submitBinding = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!config) return;
 
