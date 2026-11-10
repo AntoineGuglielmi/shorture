@@ -16,6 +16,71 @@ const gestureLabels: Record<GestureName, string> = {
   "pinch-out": "Pincer (écarter)"
 };
 
+
+function ShortcutRecorder({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [listening, setListening] = useState(false);
+  const pressed = useRef(new Set<string>());
+
+  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!listening) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.key === "Escape") {
+      setListening(false);
+      pressed.current.clear();
+      return;
+    }
+
+    const modifier = ["Control", "Alt", "Shift"].includes(event.key);
+    if (modifier) {
+      pressed.current.add(event.code);
+      const modifiers = [...pressed.current]
+        .map((code) => code.startsWith("Shift") ? "Shift" : code.startsWith("Control") ? "Ctrl" : code.startsWith("Alt") ? "Alt" : "")
+        .filter(Boolean);
+      const counts = modifiers.reduce<Record<string, number>>((result, item) => {
+        result[item] = (result[item] ?? 0) + 1;
+        return result;
+      }, {});
+      const duplicate = Object.entries(counts).find(([, count]) => count > 1);
+      if (duplicate) onChange(`${duplicate[0]}+${duplicate[0]}`);
+      else if (modifiers.length > 1) onChange([...new Set(modifiers)].join("+"));
+      return;
+    }
+
+    const modifiers = [...pressed.current]
+      .map((code) => code.startsWith("Shift") ? "Shift" : code.startsWith("Control") ? "Ctrl" : code.startsWith("Alt") ? "Alt" : "")
+      .filter(Boolean);
+    const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
+    onChange([...new Set(modifiers), key].join("+"));
+    setListening(false);
+    pressed.current.clear();
+  };
+
+  const onKeyUp = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (listening) {
+      event.preventDefault();
+      event.stopPropagation();
+      pressed.current.delete(event.code);
+    }
+  };
+
+  return (
+    <div
+      className={listening ? "shortcut-recorder listening" : "shortcut-recorder"}
+      role="button"
+      tabIndex={0}
+      aria-label="Enregistrer un raccourci clavier"
+      onClick={(event) => { event.currentTarget.focus(); pressed.current.clear(); setListening(true); }}
+      onBlur={() => { setListening(false); pressed.current.clear(); }}
+      onKeyDown={onKeyDown}
+      onKeyUp={onKeyUp}
+    >
+      <strong>{listening ? "Appuie sur ton raccourci…" : value || "Cliquer pour enregistrer"}</strong>
+      <span>{listening ? "Échap pour annuler" : "Cliquer pour modifier"}</span>
+    </div>
+  );
+}
+
 function DesktopApp() {
   const [info, setInfo] = useState<DesktopInfo | null>(null);
   const [config, setConfig] = useState<ShortureConfig | null>(null);
@@ -287,8 +352,8 @@ function DesktopApp() {
                 <option value="">Choisir une application…</option>
                 {info?.installedApplications.map((application) => <option key={application.id} value={application.id}>{application.name}</option>)}
               </select>
-            </label> : <label><span>Raccourci Windows</span><input value={shortcut} onChange={(event) => setShortcut(event.target.value)} placeholder="Ctrl+Shift+Esc" required /></label>}
-          </> : <label><span>Raccourci clavier dans l’application</span><input value={shortcut} onChange={(event) => setShortcut(event.target.value)} placeholder="Ctrl+N" required /></label>}
+            </label> : <label><span>Raccourci Windows</span><ShortcutRecorder value={shortcut} onChange={setShortcut} /></label>}
+          </> : <label><span>Raccourci clavier dans l’application</span><ShortcutRecorder value={shortcut} onChange={setShortcut} /></label>}
           <div className="form-actions">
             <button className="button primary" type="submit" disabled={scope === "application" && !selectedContext}>{editingId ? "Enregistrer" : "Ajouter la commande"}</button>
             {saveMessage && <span className="save-message">{saveMessage}</span>}
