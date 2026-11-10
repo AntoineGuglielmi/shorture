@@ -5,7 +5,7 @@ import type { ShortcutAction } from "./types";
 
 const execFileAsync = promisify(execFile);
 
-const keySequences: Record<ShortcutAction, string[]> = {
+const keySequences: Partial<Record<ShortcutAction, string[]>> = {
   "command-palette": ["^+p"],
   "open-terminal": ["^+p", "Terminal: Create New Terminal", "{ENTER}"],
   save: ["^s"],
@@ -26,7 +26,7 @@ export async function executeShortcut(executablePath: string, action: ShortcutAc
   const safeName = escapePowerShell(processName);
   const safePath = escapePowerShell(executablePath);
   const keys = keySequences[action];
-  if (!keys) throw new Error("Unsupported shortcut.");
+  if (!keys) throw new Error("Unsupported keyboard shortcut.");
 
   const sendKeys = keys.map((sequence, index) => {
     const wait = index === 0 && keys.length > 1 ? "Start-Sleep -Milliseconds 250\r\n" : "";
@@ -67,5 +67,47 @@ export async function executeShortcut(executablePath: string, action: ShortcutAc
     const processError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
     const details = processError.stderr?.trim() || processError.stdout?.trim() || processError.message || "Unknown PowerShell error.";
     throw new Error(`Shortcut "${action}" failed: ${details}`);
+  }
+}
+
+
+export type TargetApplication = "vscode" | "phpstorm" | "chrome" | "teams";
+
+const processNames: Record<TargetApplication, string[]> = {
+  vscode: ["Code"],
+  phpstorm: ["phpstorm64", "phpstorm"],
+  chrome: ["chrome"],
+  teams: ["ms-teams", "Teams"]
+};
+
+export async function activateApplication(application: TargetApplication): Promise<void> {
+  if (process.platform !== "win32") {
+    throw new Error("Application activation is currently available on Windows only.");
+  }
+
+  const candidates = processNames[application].map((name) => "'" + escapePowerShell(name) + "'").join(", ");
+  const script = [
+    "$ErrorActionPreference = 'Stop'",
+    "try {",
+    "  $names = @(" + candidates + ")",
+    "  $process = Get-Process -Name $names -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1",
+    "  if (-not $process) { throw 'No open window was found for " + application + ".' }",
+    "  $shell = New-Object -ComObject WScript.Shell",
+    "  if (-not $shell.AppActivate($process.Id)) { throw 'Could not activate the " + application + " window.' }",
+    "} catch {",
+    "  [Console]::Error.WriteLine($_.Exception.ToString())",
+    "  exit 1",
+    "}"
+  ].join("\r\n");
+
+  const encoded = Buffer.from(script, "utf16le").toString("base64");
+  try {
+    await execFileAsync("powershell.exe", [
+      "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded
+    ], { windowsHide: true, timeout: 10000 });
+  } catch (error) {
+    const processError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
+    const details = processError.stderr?.trim() || processError.stdout?.trim() || processError.message || "Unknown PowerShell error.";
+    throw new Error("Could not activate " + application + ": " + details);
   }
 }
