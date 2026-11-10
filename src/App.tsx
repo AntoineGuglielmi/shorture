@@ -17,7 +17,8 @@ const gestureLabels: Record<GestureName, string> = {
 
 function DesktopApp() {
   const [info, setInfo] = useState<DesktopInfo | null>(null);
-  const [error, setError] = useState<string | null>(null);\n  const [shortcutFailure, setShortcutFailure] = useState<ShortcutFailure | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [shortcutFailure, setShortcutFailure] = useState<ShortcutFailure | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -28,7 +29,9 @@ function DesktopApp() {
     }
   }, []);
 
-  useEffect(() => { void refresh(); }, [refresh]);\n\n  useEffect(() => window.shorture.onShortcutError(setShortcutFailure), []);
+  useEffect(() => { void refresh(); }, [refresh]);
+
+  useEffect(() => window.shorture.onShortcutError(setShortcutFailure), []);
 
   const chooseApplication = async () => {
     const selected = await window.shorture.chooseApplication();
@@ -55,7 +58,21 @@ function DesktopApp() {
 
       {error && <p className="notice error">{error}</p>}
 
-      {shortcutFailure && (\n        <section className="panel" style={{ marginTop: 24, padding: 20, border: "1px solid #b85c5c" }}>\n          <p className="eyebrow">ERREUR DE RACCOURCI · {shortcutFailure.action}</p>\n          <h2>Impossible d’exécuter le geste</h2>\n          <p className="muted">{shortcutFailure.message}</p>\n          <p className="muted">{new Date(shortcutFailure.occurredAt).toLocaleString()}</p>\n          <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 220, overflow: "auto", padding: 12, background: "#090a0c", color: "#f0f0f0" }}>{shortcutFailure.details}</pre>\n          <div style={{ display: "flex", gap: 12 }}>\n            <button className="button secondary" onClick={() => void navigator.clipboard.writeText(JSON.stringify(shortcutFailure, null, 2))}>Copier le diagnostic complet</button>\n            <button className="text-button" onClick={() => setShortcutFailure(null)}>Effacer</button>\n          </div>\n        </section>\n      )}\n\n      <section className="panel application-panel">
+      {shortcutFailure && (
+        <section className="panel" style={{ marginTop: 24, padding: 20, border: "1px solid #b85c5c" }}>
+          <p className="eyebrow">ERREUR DE RACCOURCI · {shortcutFailure.action}</p>
+          <h2>Impossible d’exécuter le geste</h2>
+          <p className="muted">{shortcutFailure.message}</p>
+          <p className="muted">{new Date(shortcutFailure.occurredAt).toLocaleString()}</p>
+          <pre style={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxHeight: 220, overflow: "auto", padding: 12, background: "#090a0c", color: "#f0f0f0" }}>{shortcutFailure.details}</pre>
+          <div style={{ display: "flex", gap: 12 }}>
+            <button className="button secondary" onClick={() => void navigator.clipboard.writeText(JSON.stringify(shortcutFailure, null, 2))}>Copier le diagnostic complet</button>
+            <button className="text-button" onClick={() => setShortcutFailure(null)}>Effacer</button>
+          </div>
+        </section>
+      )}
+
+      <section className="panel application-panel">
         <div>
           <p className="eyebrow">01 / APPLICATION CIBLE</p>
           <h2>{info?.targetPath ? info.targetPath.split(/[\\/]/).pop() : "Aucune application sélectionnée"}</h2>
