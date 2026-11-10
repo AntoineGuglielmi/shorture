@@ -10,13 +10,14 @@ This repository contains the **first working Shorture prototype**. Its main purp
 
 The prototype currently allows you to:
 
-- target an already running application window using a two-finger swipe;
-- connect a phone to the computer through a browser on the same local network;
-- detect a small set of multi-touch gestures;
-- send the corresponding action to the selected application;
-- display execution errors on the computer and copy their diagnostic details.
+- configure global gestures that activate application windows;
+- configure application-specific gestures that send keyboard shortcuts to the application currently in the foreground;
+- add, edit, and remove gesture bindings in the desktop interface;
+- persist the configuration on the computer between launches;
+- connect a phone through a browser on the same local network;
+- display execution errors and copy their diagnostic details.
 
-Gestures and shortcuts are predefined. There is no configuration editor or custom control-surface creation yet.
+The gesture recognizer currently supports two-finger tap, directional swipes, and pinch gestures. The configuration model is designed to support additional gesture and action types later.
 
 ## How it works
 
@@ -82,11 +83,10 @@ The Shorture application should open on your computer.
 
 ## Connect your phone
 
-1. In Shorture, click **Choose an .exe** and select the executable of the application you want to control. For Visual Studio Code, this is usually `Code.exe`.
-2. Find the local address and six-digit PIN displayed in the application.
-3. On your phone, connected to the same Wi-Fi network, open that address in Chrome. It should look similar to `http://192.168.1.20:5173/mobile`.
-4. Enter the PIN displayed on your computer.
-5. If Windows asks for permission to access the private network, allow it.
+1. Find the local address and six-digit PIN displayed in Shorture.
+2. On your phone, connected to the same Wi-Fi network, open that address in Chrome. It should look similar to `http://192.168.1.20:5173/mobile`.
+3. Enter the PIN displayed on your computer.
+4. If Windows asks for permission to access the private network, allow it.
 
 Once connected, the phone's touch surface is ready to receive gestures.
 
@@ -124,8 +124,6 @@ Run these commands from the project root:
 
 ### The gesture is detected, but the shortcut is not executed
 
-- Make sure a valid `.exe` file has been selected in Shorture.
-- Check that the target application can be launched normally.
 - Check the diagnostics panel in the desktop application.
 - Use the copy-diagnostics button to retrieve the full error details.
 
@@ -146,7 +144,6 @@ First, make sure dependency installation completed successfully. If the Electron
 - Application activation currently requires the target application to be running.
 - No customizable control surfaces or actions yet.
 - Gesture detection depends on the browser and touch hardware.
-- Application selection and configuration are not persisted after closing the app.
 - The phone and computer must remain on the same local network.
 
 ## Tech stack
