@@ -7,7 +7,6 @@ const execFileAsync = promisify(execFile);
 
 const keySequences: Partial<Record<ShortcutAction, string[]>> = {
   "command-palette": ["^+p"],
-  "open-terminal": ["^+p", "Terminal: Create New Terminal", "{ENTER}"],
   save: ["^s"],
   undo: ["^z"]
 };
