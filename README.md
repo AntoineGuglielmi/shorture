@@ -153,4 +153,5 @@ First, make sure dependency installation completed successfully. If the Electron
 - TypeScript
 - Vite
 - WebSocket (`ws`)
-- PowerShell and Windows `user32.dll` API for window activation\n- `System.Windows.Forms.SendKeys` for keyboard shortcuts
+- PowerShell and Windows `user32.dll` API for window activation
+- `System.Windows.Forms.SendKeys` for keyboard shortcuts
