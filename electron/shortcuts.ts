@@ -136,7 +136,7 @@ export async function activateApplication(application: InstalledApplication, tog
     "}",
     "if (-not $active) { throw 'Windows ne peut pas activer cette fenetre.' }"
   ].join("\r\n");
-  try { await runPowerShell(script, 12000); }
+  try { await runPowerShell(script, 22000); }
   catch (error) {
     const processError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
     throw new Error(processError.stderr?.trim() || processError.stdout?.trim() || processError.message || "Impossible d’activer " + application.name + ".");
