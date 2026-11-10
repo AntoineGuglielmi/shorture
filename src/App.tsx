@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent } from "react";
 import type { DesktopInfo, GestureName, ShortcutFailure } from "../electron/types";
+import { QRCodeSVG } from "qrcode.react";
 
 type ServerMessage = {
   type: "connected" | "executed" | "error";
@@ -42,6 +43,9 @@ function DesktopApp() {
   };
 
   const mobileUrls = info?.addresses.map((address) => `http://${address}:5173/mobile`) ?? [];
+  const pairingUrl = mobileUrls[0] && info?.pin
+    ? `${mobileUrls[0]}?pin=${encodeURIComponent(info.pin)}`
+    : null;
 
   return (
     <main className="desktop-shell">
@@ -87,7 +91,14 @@ function DesktopApp() {
         <article className="panel connection-panel">
           <p className="eyebrow">02 / CONNEXION LOCALE</p>
           <h2>Connecte ton téléphone</h2>
-          <p className="muted">Le PC et le Redmi doivent être sur le même réseau Wi-Fi. Ouvre cette adresse sur ton téléphone :</p>
+          <p className="muted">Scanne ce QR code avec l’appareil photo de ton téléphone. Le PC et le mobile doivent être sur le même réseau Wi-Fi.</p>
+          {pairingUrl && (
+            <div className="pairing-qr">
+              <QRCodeSVG value={pairingUrl} size={184} level="M" includeMargin />
+              <span>SCANNE POUR TE CONNECTER</span>
+            </div>
+          )}
+          <p className="muted">Ou ouvre l’adresse manuellement :</p>
           {mobileUrls.length > 0
             ? mobileUrls.map((url) => <p className="address" key={url}>{url}</p>)
             : <p className="notice">Aucune adresse réseau détectée. Vérifie que le Wi-Fi est activé.</p>}
@@ -128,8 +139,8 @@ function MobileApp() {
 
   useEffect(() => () => socketRef.current?.close(), []);
 
-  const connect = () => {
-    const cleanPin = pin.trim();
+  const connect = (providedPin?: string) => {
+    const cleanPin = (providedPin ?? pin).trim();
     if (!/^\d{6}$/.test(cleanPin)) {
       setStatus("Le code doit contenir 6 chiffres.");
       return;
@@ -153,6 +164,14 @@ function MobileApp() {
     socket.onerror = () => setStatus("Connexion impossible. Vérifie le Wi-Fi et le pare-feu Windows.");
     socket.onclose = () => setConnected(false);
   };
+
+  useEffect(() => {
+    const urlPin = new URLSearchParams(window.location.search).get("pin");
+    if (urlPin && /^\\d{6}$/.test(urlPin)) {
+      setPin(urlPin);
+      connect(urlPin);
+    }
+  }, []);
 
   const sendGesture = useCallback((gesture: GestureName) => {
     const socket = socketRef.current;
