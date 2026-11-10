@@ -266,6 +266,7 @@ function MobileApp() {
     if (!pad) return;
 
     const onTouchStart = (event: TouchEvent) => {
+      setTouchDebug(`TOUCHSTART · ${event.touches.length} contact(s)`);
       if (event.touches.length < 3) return;
 
       if (event.cancelable) event.preventDefault();
