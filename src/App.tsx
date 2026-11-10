@@ -81,7 +81,7 @@ function DesktopApp() {
 
       <section className="panel application-panel">
         <div>
-          <p className="eyebrow">01 / APPLICATION CIBLE</p>
+          <p className="eyebrow">01 / CIBLE DES RACCOURCIS CLAVIER</p>
           <h2>{info?.targetPath ? info.targetPath.split(/[\\/]/).pop() : "Aucune application sélectionnée"}</h2>
           <p className="muted">{info?.targetPath ?? "Choisis le fichier .exe de l’application à piloter."}</p>
         </div>
@@ -114,7 +114,7 @@ function DesktopApp() {
 
         <article className="panel mapping-panel">
           <p className="eyebrow">03 / GESTES CONFIGURÉS</p>
-          <h2>Raccourcis de test</h2>
+          <h2>Navigation et raccourcis</h2>
           <ul className="mapping-list">
             <li><span>2 doigts ←</span><kbd>VS Code</kbd><small>Activer la fenêtre</small></li>
             <li><span>2 doigts ↑</span><kbd>PhpStorm</kbd><small>Activer la fenêtre</small></li>
