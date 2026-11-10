@@ -75,6 +75,7 @@ a { color: inherit; }
 .mobile-feedback { padding: 18px 2px 8px; }
 .mobile-feedback span { color: var(--accent); font-size: 13px; font-weight: 700; }
 .mobile-feedback p { margin: 5px 0; color: var(--muted); font-size: 11px; }
+.mobile-feedback .touch-debug { color: #a9b0a0; font: 10px/1.5 "DM Mono", monospace; overflow-wrap: anywhere; }
 .disconnect { align-self: flex-start; padding: 8px 0; }
 @media (max-width: 720px) {
   .desktop-shell { width: min(100% - 36px, 520px); }
