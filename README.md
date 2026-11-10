@@ -25,7 +25,7 @@ Shorture consists of two interfaces:
 - **Desktop application**: an Electron application built with React and TypeScript. It lets you select the application to control and displays connection details.
 - **Mobile interface**: a touch-friendly web page opened in the phone's browser. No APK is required.
 
-Both interfaces communicate over the local Wi-Fi network using WebSocket. On Windows, the desktop application uses PowerShell and `WScript.Shell` to activate application windows, and `System.Windows.Forms.SendKeys` to send keyboard shortcuts.
+Both interfaces communicate over the local Wi-Fi network using WebSocket. On Windows, the desktop application uses PowerShell and the Windows `user32.dll` API to restore and bring application windows to the foreground, and `System.Windows.Forms.SendKeys` to send keyboard shortcuts.
 
 ```text
 Phone (Chrome)
@@ -104,7 +104,7 @@ The following gestures are currently mapped to predefined actions:
 | Pinch in | Send `Ctrl + Z` to the selected application |
 | Pinch out | Send `Ctrl + Shift + P` to the selected application |
 
-Application activation targets an already running window. If the application is not open, Shorture reports an error rather than launching an application whose installation path may vary. VS Code, PhpStorm, Chrome, and Microsoft Teams are matched using their Windows process names.
+Application activation targets an already running window. Minimized windows are restored before Shorture attempts to bring them to the foreground. Windows may still restrict foreground activation in some situations; if that happens, Shorture reports an error. If the application is not open, Shorture reports an error rather than launching an application whose installation path may vary. VS Code, PhpStorm, Chrome, and Microsoft Teams are matched using their Windows process names.
 
 ## Checks and useful commands
 
