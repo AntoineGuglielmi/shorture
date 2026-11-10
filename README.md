@@ -1,160 +1,160 @@
 # Shorture
 
-**Shorture transforme un smartphone en surface de contrôle tactile pour déclencher des raccourcis clavier sur un ordinateur.**
+**Shorture turns a smartphone into a touch control surface for triggering keyboard shortcuts on a computer.**
 
-L'idée est de piloter les actions fréquentes d'une application de bureau avec des gestes effectués sur son téléphone : enregistrer, annuler, ouvrir un panneau ou lancer une commande.
+The idea is to control common actions in a desktop application using gestures performed on a phone: save, undo, open a panel, or run a command.
 
-Ce dépôt contient le **premier prototype fonctionnel** de Shorture. Il valide principalement la communication entre le téléphone et l'ordinateur ainsi que l'exécution de raccourcis Windows.
+This repository contains the **first working Shorture prototype**. Its main purpose is to validate communication between the phone and the computer, as well as Windows shortcut execution.
 
-## État du projet
+## Project status
 
-Le prototype permet actuellement de :
+The prototype currently allows you to:
 
-- lancer une application de bureau depuis Shorture ou de cibler une instance déjà ouverte ;
-- connecter un téléphone à l'ordinateur depuis un navigateur, sur le même réseau local ;
-- détecter quelques gestes tactiles multi-touch ;
-- transmettre l'action correspondante à l'application sélectionnée ;
-- afficher les erreurs d'exécution sur l'ordinateur et copier leur diagnostic.
+- launch a desktop application from Shorture or target an already running instance;
+- connect a phone to the computer through a browser on the same local network;
+- detect a small set of multi-touch gestures;
+- send the corresponding action to the selected application;
+- display execution errors on the computer and copy their diagnostic details.
 
-Les gestes et raccourcis sont prédéfinis. Il n'y a pas encore d'éditeur de configuration ni de création de surfaces personnalisées.
+Gestures and shortcuts are predefined. There is no configuration editor or custom control-surface creation yet.
 
-## Fonctionnement
+## How it works
 
-Shorture est composé de deux interfaces :
+Shorture consists of two interfaces:
 
-- **Application ordinateur** : application Electron avec une interface React et TypeScript. Elle permet de sélectionner l'application à piloter et affiche les informations de connexion.
-- **Interface mobile** : page web adaptée au tactile, ouverte dans le navigateur du téléphone. Aucun APK n'est nécessaire.
+- **Desktop application**: an Electron application built with React and TypeScript. It lets you select the application to control and displays connection details.
+- **Mobile interface**: a touch-friendly web page opened in the phone's browser. No APK is required.
 
-Les deux interfaces communiquent sur le réseau Wi-Fi local via WebSocket. Sur Windows, l'application ordinateur utilise PowerShell, `WScript.Shell` et `System.Windows.Forms.SendKeys` pour activer la fenêtre cible et envoyer les touches.
+Both interfaces communicate over the local Wi-Fi network using WebSocket. On Windows, the desktop application uses PowerShell, `WScript.Shell`, and `System.Windows.Forms.SendKeys` to activate the target window and send keystrokes.
 
 ```text
-Téléphone (Chrome)
-       |
-       | Wi-Fi local / WebSocket
-       v
+Phone (Chrome)
+     |
+     | Local Wi-Fi / WebSocket
+     v
 Shorture (Electron)
-       |
-       | PowerShell / SendKeys
-       v
-Application ciblée (ex. Visual Studio Code)
+     |
+     | PowerShell / SendKeys
+     v
+Target application (e.g. Visual Studio Code)
 ```
 
-## Prérequis
+## Requirements
 
-- Windows 10 ou Windows 11.
-- Node.js 22 LTS recommandé (20 ou supérieur).
+- Windows 10 or Windows 11.
+- Node.js 22 LTS recommended (20 or later).
 - npm.
-- Un téléphone et un ordinateur connectés au même réseau local.
-- Un navigateur récent sur le téléphone (Chrome Android recommandé).
+- A phone and a computer connected to the same local network.
+- A modern browser on the phone (Chrome on Android recommended).
 
-> L'envoi des raccourcis clavier est actuellement spécifique à Windows. Le serveur mobile est prévu pour un usage sur le réseau local, pas pour être exposé sur Internet.
+> Keyboard shortcut execution is currently Windows-specific. The mobile server is intended for local network use and should not be exposed to the Internet.
 
 ## Installation
 
-Récupérer le dépôt depuis GitHub :
+Clone the repository from GitHub:
 
 ```powershell
 git clone --branch 001-first-prototype https://github.com/AntoineGuglielmi/shorture.git
 cd shorture
 ```
 
-Ou télécharger directement l'archive de la branche :
+Or download the branch archive directly:
 
-[Télécharger Shorture — branche 001-first-prototype](https://github.com/AntoineGuglielmi/shorture/archive/refs/heads/001-first-prototype.zip)
+[Download Shorture — 001-first-prototype branch](https://github.com/AntoineGuglielmi/shorture/archive/refs/heads/001-first-prototype.zip)
 
-Installer les dépendances :
+Install the dependencies:
 
 ```powershell
 npm install
 ```
 
-## Lancer Shorture
+## Run Shorture
 
-À la racine du projet :
+From the project root, run:
 
 ```powershell
 npm run dev
 ```
 
-Cette commande démarre Vite, la compilation du processus Electron et l'application de bureau.
+This command starts Vite, the Electron process compilation, and the desktop application.
 
-L'application Shorture doit s'ouvrir sur l'ordinateur.
+The Shorture application should open on your computer.
 
-## Connecter le téléphone
+## Connect your phone
 
-1. Dans Shorture, clique sur **Choisir un .exe** et sélectionne l'exécutable de l'application à piloter. Pour Visual Studio Code, il s'agit généralement de `Code.exe`.
-2. Repère l'adresse locale et le code PIN à six chiffres affichés dans l'application.
-3. Sur le téléphone, connecté au même Wi-Fi, ouvre cette adresse dans Chrome. Elle ressemble à `http://192.168.1.20:5173/mobile`.
-4. Saisis le code PIN affiché sur l'ordinateur.
-5. Si Windows demande une autorisation pour le réseau privé, autorise l'accès.
+1. In Shorture, click **Choose an .exe** and select the executable of the application you want to control. For Visual Studio Code, this is usually `Code.exe`.
+2. Find the local address and six-digit PIN displayed in the application.
+3. On your phone, connected to the same Wi-Fi network, open that address in Chrome. It should look similar to `http://192.168.1.20:5173/mobile`.
+4. Enter the PIN displayed on your computer.
+5. If Windows asks for permission to access the private network, allow it.
 
-Une fois connecté, la surface tactile du téléphone est prête à recevoir les gestes.
+Once connected, the phone's touch surface is ready to receive gestures.
 
-## Gestes disponibles
+## Available gestures
 
-Les gestes suivants sont actuellement associés à des raccourcis prédéfinis :
+The following gestures are currently mapped to predefined shortcuts:
 
-| Geste | Action envoyée | Résultat attendu |
+| Gesture | Shortcut sent | Expected result |
 | --- | --- | --- |
-| Appui simultané de deux doigts | `Ctrl + S` | Enregistrer le document |
-| Glissement de trois doigts vers le haut | `Ctrl + Shift + P`, puis la commande `Terminal: Create New Terminal` | Ouvrir le terminal intégré de VS Code |
-| Pincement entrant | `Ctrl + Z` | Annuler la dernière action |
-| Pincement sortant | `Ctrl + Shift + P` | Ouvrir la palette de commandes |
+| Two-finger tap | `Ctrl + S` | Save the document |
+| Three-finger swipe up | `Ctrl + Shift + P`, then the `Terminal: Create New Terminal` command | Open the VS Code integrated terminal |
+| Pinch in | `Ctrl + Z` | Undo the last action |
+| Pinch out | `Ctrl + Shift + P` | Open the Command Palette |
 
-Les raccourcis sont envoyés à la fenêtre de l'application sélectionnée. Si aucune fenêtre correspondante n'est trouvée, Shorture tente de démarrer l'application à partir de l'exécutable choisi.
+Shortcuts are sent to the selected application's window. If no matching window is found, Shorture attempts to launch the application using the selected executable.
 
-> La commande d'ouverture du terminal utilise actuellement le libellé anglais de VS Code. Son exécution peut donc dépendre de la langue de l'interface.
+> The terminal-opening gesture currently uses the English VS Code command label. It may therefore depend on the language configured in the editor.
 
-## Vérifications et commandes utiles
+## Checks and useful commands
 
-Depuis la racine du dépôt :
+Run these commands from the project root:
 
-| Commande | Rôle |
+| Command | Purpose |
 | --- | --- |
-| `npm run dev` | Lance l'application en développement |
-| `npm run typecheck` | Vérifie les types TypeScript |
-| `npm run build` | Vérifie et construit le projet |
+| `npm run dev` | Start the application in development mode |
+| `npm run typecheck` | Check TypeScript types |
+| `npm run build` | Type-check and build the project |
 
-## Dépannage
+## Troubleshooting
 
-### Le téléphone n'arrive pas à se connecter
+### The phone cannot connect
 
-- Vérifie que le téléphone et le PC sont sur le même réseau Wi-Fi.
-- Vérifie que le réseau Windows est défini comme réseau privé.
-- Autorise Node.js / Electron dans le pare-feu Windows pour les réseaux privés.
-- Vérifie que l'adresse saisie sur le téléphone correspond à celle affichée dans Shorture.
+- Make sure the phone and computer are connected to the same Wi-Fi network.
+- Make sure the Windows network profile is set to Private.
+- Allow Node.js / Electron through the Windows Firewall on private networks.
+- Check that the address entered on the phone matches the one displayed in Shorture.
 
-### Le geste est détecté, mais le raccourci ne s'exécute pas
+### The gesture is detected, but the shortcut is not executed
 
-- Vérifie qu'un fichier `.exe` valide a été sélectionné dans Shorture.
-- Vérifie que l'application cible peut être lancée normalement.
-- Consulte le panneau de diagnostic dans l'application ordinateur.
-- Utilise le bouton de copie du diagnostic pour récupérer le détail complet de l'erreur.
+- Make sure a valid `.exe` file has been selected in Shorture.
+- Check that the target application can be launched normally.
+- Check the diagnostics panel in the desktop application.
+- Use the copy-diagnostics button to retrieve the full error details.
 
-### Les gestes multi-touch ne sont pas détectés correctement
+### Multi-touch gestures are not detected correctly
 
-- Utilise Chrome sur Android.
-- Effectue les gestes à l'intérieur de la surface tactile de Shorture.
-- Certains gestes système du téléphone ou de sa surcouche Android peuvent intercepter les mouvements, notamment près des bords de l'écran.
+- Use Chrome on Android.
+- Perform gestures inside Shorture's touch surface.
+- Some phone system gestures or Android customizations may intercept movements, especially near the edges of the screen.
 
-### L'application Electron ne démarre pas après l'installation
+### Electron does not start after installation
 
-Vérifie d'abord que l'installation des dépendances s'est terminée correctement. Si le binaire Electron pour Windows n'a pas été téléchargé, supprime `node_modules`, relance `npm install` et vérifie à nouveau.
+First, make sure dependency installation completed successfully. If the Electron binary for Windows was not downloaded, delete `node_modules`, run `npm install` again, and check once more.
 
-## Limites actuelles
+## Current limitations
 
-- Windows uniquement pour l'exécution des raccourcis.
-- Liste de gestes et de raccourcis codée en dur.
-- Pas encore de configuration personnalisable des surfaces ou des actions.
-- La détection des gestes dépend du navigateur et du matériel tactile.
-- La sélection de l'application et la configuration ne sont pas encore persistées après fermeture.
-- Le téléphone et le PC doivent rester sur le même réseau local.
+- Windows only for shortcut execution.
+- Gesture and shortcut mappings are hard-coded.
+- No customizable control surfaces or actions yet.
+- Gesture detection depends on the browser and touch hardware.
+- Application selection and configuration are not persisted after closing the app.
+- The phone and computer must remain on the same local network.
 
-## Stack technique
+## Tech stack
 
 - Electron
 - React
 - TypeScript
 - Vite
 - WebSocket (`ws`)
-- PowerShell et Windows Script Host pour l'envoi des raccourcis
+- PowerShell and Windows Script Host for shortcut execution
