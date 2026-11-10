@@ -88,7 +88,7 @@ async function sendKeys(shortcut: string): Promise<void> {
         "using System;",
         "using System.Runtime.InteropServices;",
         "public static class ShortureKeyboardApi {",
-        " [DllImport(\\"user32.dll\\")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);",
+        " [DllImport(\"user32.dll\")] public static extern void keybd_event(byte bVk, byte bScan, uint dwFlags, UIntPtr dwExtraInfo);",
         "}",
         "'@",
         "$key = [byte]" + doubleModifier,
