@@ -1,0 +1,31 @@
+{
+  "name": "shorture",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Use your phone as a touch surface for desktop shortcuts.",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k \"vite --host 0.0.0.0\" \"tsc -p tsconfig.electron.json --watch\" \"npm:electron:dev\"",
+    "electron:dev": "wait-on tcp:5173 dist-electron/main.js && electron .",
+    "build": "tsc -b && tsc -p tsconfig.electron.json && vite build",
+    "start": "electron .",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "@types/ws": "^8.5.14",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.2",
+    "electron": "^35.0.0",
+    "typescript": "~5.7.2",
+    "vite": "^6.1.0",
+    "wait-on": "^8.0.2"
+  }
+}
