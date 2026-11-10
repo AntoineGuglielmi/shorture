@@ -64,6 +64,11 @@ $items | Sort-Object executablePath -Unique | ConvertTo-Json -Compress -Depth 3
 
 function keySequence(shortcut: string): string {
   const parts = shortcut.split("+");
+  if (parts.length === 2 && parts[0].toLowerCase() === parts[1].toLowerCase()) {
+    const standaloneModifiers: Record<string, string> = { ctrl: "{CTRL}", shift: "{SHIFT}", alt: "{ALT}" };
+    const standalone = standaloneModifiers[parts[0].toLowerCase()];
+    if (standalone) return standalone;
+  }
   const key = parts.pop()?.toLowerCase();
   if (!key) throw new Error("Raccourci clavier invalide.");
   const modifiers: Record<string, string> = { ctrl: "^", shift: "+", alt: "%" };
