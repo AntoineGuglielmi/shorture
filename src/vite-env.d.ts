@@ -1,13 +1,12 @@
 /// <reference types="vite/client" />
 
-import type { DesktopInfo, ShortcutFailure } from "../electron/types";
+import type { DesktopInfo, ShortcutFailure, ShortureConfig } from "../electron/types";
 
 declare global {
   interface Window {
     shorture: {
       getDesktopInfo: () => Promise<DesktopInfo>;
-      chooseApplication: () => Promise<string | null>;
-      setTargetPath: (targetPath: string | null) => Promise<void>;
+      saveConfig: (config: ShortureConfig) => Promise<ShortureConfig>;
       onShortcutError: (callback: (failure: ShortcutFailure) => void) => () => void;
     };
   }
