@@ -3,21 +3,23 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { randomInt } from "node:crypto";
 import { createLocalServer, getLocalAddresses } from "./server";
-import { activateApplication, executeApplicationShortcut, getForegroundApplication } from "./shortcuts";
+import { activateApplication, executeApplicationShortcut, executeWindowsShortcut, getForegroundProcessName, getInstalledApplications } from "./shortcuts";
 import { createDefaultConfig, parseConfig } from "./config";
-import type { GestureName, ShortcutFailure, ShortureConfig } from "./types";
+import type { GestureName, InstalledApplication, ShortcutFailure, ShortureConfig } from "./types";
 
 let mainWindow: BrowserWindow | null = null;
-let config: ShortureConfig = createDefaultConfig();
+let installedApplications: InstalledApplication[] = [];
+let config: ShortureConfig = { globalCommands: [], contextApps: [] };
 const pin = String(randomInt(100000, 999999));
 const configPath = () => path.join(app.getPath("userData"), "shorture.config.json");
 
 async function loadConfig(): Promise<void> {
+  installedApplications = await getInstalledApplications();
   try {
     const stored = await readFile(configPath(), "utf8");
-    config = parseConfig(JSON.parse(stored) as unknown);
+    config = parseConfig(JSON.parse(stored) as unknown, installedApplications);
   } catch {
-    config = createDefaultConfig();
+    config = createDefaultConfig(installedApplications);
     await saveConfig(config);
   }
 }
@@ -30,48 +32,48 @@ async function saveConfig(value: ShortureConfig): Promise<void> {
 }
 
 function getBindingLabel(gesture: GestureName): string {
-  const binding = config.bindings.find((item) => item.gesture === gesture && item.scope.type === "global");
-  if (binding?.action.type === "activate-application") return "activate-" + binding.action.application;
-  const appBinding = config.bindings.find((item) => item.gesture === gesture && item.scope.type === "application");
-  if (appBinding?.action.type === "keyboard-shortcut") return appBinding.action.shortcut;
+  const global = config.globalCommands.find((item) => item.gesture === gesture);
+  if (global?.action.type === "activate-application") {
+    return "activate-" + (installedApplications.find((app) => app.id === global.action.applicationId)?.name ?? "application");
+  }
+  if (global?.action.type === "windows-shortcut") return global.action.shortcut;
+  for (const context of config.contextApps) {
+    const command = context.commands.find((item) => item.gesture === gesture);
+    if (command?.action.type === "keyboard-shortcut") return context.application.name + " · " + command.action.shortcut;
+  }
   return "unconfigured";
 }
 
 const localServer = createLocalServer(pin, {
   onGesture: async (gesture) => {
-    const globalBinding = config.bindings.find((binding) =>
-      binding.scope.type === "global" && binding.gesture === gesture
-    );
-
-    if (globalBinding) {
-      if (globalBinding.action.type === "activate-application") {
-        await activateApplication(globalBinding.action.application);
+    const globalCommand = config.globalCommands.find((command) => command.gesture === gesture);
+    if (globalCommand) {
+      if (globalCommand.action.type === "activate-application") {
+        const application = installedApplications.find((item) => item.id === globalCommand.action.applicationId);
+        if (!application) throw new Error("L’application cible n’est plus disponible.");
+        await activateApplication(application);
         return;
       }
-      throw new Error("Cette action globale n’est pas encore prise en charge.");
+      if (globalCommand.action.type === "windows-shortcut") {
+        await executeWindowsShortcut(globalCommand.action.shortcut);
+        return;
+      }
     }
 
-    const activeApplication = await getForegroundApplication();
-    if (!activeApplication) {
-      throw new Error("Aucune application cible reconnue n’est actuellement au premier plan.");
-    }
-
-    const binding = config.bindings.find((item) =>
-      item.scope.type === "application" &&
-      item.scope.application === activeApplication &&
-      item.gesture === gesture
+    const processName = await getForegroundProcessName();
+    const activeContext = config.contextApps.find((context) =>
+      context.application.processName.toLowerCase() === processName
     );
-
-    if (!binding) {
-      throw new Error("Aucune action n’est configurée pour ce geste dans " + activeApplication + ".");
+    if (!activeContext) {
+      throw new Error("Aucune contextapp configurée ne correspond à la fenêtre active.");
     }
-
-    if (binding.action.type === "keyboard-shortcut") {
-      await executeApplicationShortcut(activeApplication, binding.action.shortcut);
+    const command = activeContext.commands.find((item) => item.gesture === gesture);
+    if (!command) throw new Error("Aucune commande n’est configurée pour ce geste dans " + activeContext.application.name + ".");
+    if (command.action.type === "keyboard-shortcut") {
+      await executeApplicationShortcut(activeContext.application, command.action.shortcut);
       return;
     }
-
-    throw new Error("Type d’action non pris en charge.");
+    throw new Error("Fonctionnalité non prise en charge dans ce contexte.");
   },
   onError: (gesture, error) => {
     const failure: ShortcutFailure = {
@@ -99,7 +101,6 @@ async function createWindow() {
       sandbox: true
     }
   });
-
   await mainWindow.loadURL("http://localhost:5173");
   mainWindow.on("closed", () => { mainWindow = null; });
 }
@@ -108,11 +109,12 @@ ipcMain.handle("desktop:get-info", () => ({
   addresses: getLocalAddresses(),
   port: localServer.port,
   pin,
-  config
+  config,
+  installedApplications
 }));
 
 ipcMain.handle("desktop:save-config", async (_event, value: unknown) => {
-  const parsed = parseConfig(value);
+  const parsed = parseConfig(value, installedApplications);
   await saveConfig(parsed);
   return parsed;
 });
@@ -126,10 +128,5 @@ app.whenReady().then(async () => {
   });
 });
 
-app.on("before-quit", () => {
-  void localServer.stop();
-});
-
-app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") app.quit();
-});
+app.on("before-quit", () => { void localServer.stop(); });
+app.on("window-all-closed", () => { if (process.platform !== "darwin") app.quit(); });
