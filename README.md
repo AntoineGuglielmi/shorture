@@ -104,7 +104,7 @@ The following gestures are currently mapped to predefined actions:
 | Pinch in | Send `Ctrl + Z` to the selected application |
 | Pinch out | Send `Ctrl + Shift + P` to the selected application |
 
-Application activation targets an already running window. Minimized windows are restored before Shorture attempts to bring them to the foreground. Windows may still restrict foreground activation in some situations; if that happens, Shorture reports an error. If the application is not open, Shorture reports an error rather than launching an application whose installation path may vary. VS Code, PhpStorm, Chrome, and Microsoft Teams are matched using their Windows process names.
+Application activation targets an already running window. Minimized windows are restored before Shorture attempts to bring them to the foreground. Repeating the same gesture while the window is already focused toggles between maximized and restored size. Windows may still restrict foreground activation in some situations; if that happens, Shorture reports an error. If the application is not open, Shorture reports an error rather than launching an application whose installation path may vary. VS Code, PhpStorm, Chrome, and Microsoft Teams are matched using their Windows process names.
 
 ## Checks and useful commands
 
