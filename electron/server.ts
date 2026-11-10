@@ -53,7 +53,7 @@ export function createLocalServer(pin: string, options: ServerOptions) {
 
       if (
         message.type !== "gesture" || message.pin !== pin ||
-        !["two-finger-tap", "three-finger-swipe-up", "pinch-in", "pinch-out"].includes(message.gesture)
+        !["two-finger-tap", "two-finger-swipe-left", "two-finger-swipe-right", "two-finger-swipe-up", "two-finger-swipe-down", "pinch-in", "pinch-out"].includes(message.gesture)
       ) {
         client.send(JSON.stringify({ type: "error", message: "Geste non autorisé." }));
         return;
