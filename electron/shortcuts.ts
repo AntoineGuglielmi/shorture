@@ -87,9 +87,9 @@ export async function getForegroundApplication(): Promise<TargetApplication | nu
     "}",
     "'@",
     "$handle = [ShortureForegroundApi]::GetForegroundWindow()",
-    "$processId = [uint32]0",
-    "[ShortureForegroundApi]::GetWindowThreadProcessId($handle, [ref]$processId) | Out-Null",
-    "if ($processId -ne 0) { (Get-Process -Id $processId -ErrorAction SilentlyContinue).ProcessName }"
+    "$targetProcessId = [uint32]0",
+    "[ShortureForegroundApi]::GetWindowThreadProcessId($handle, [ref]$targetProcessId) | Out-Null",
+    "if ($targetProcessId -ne 0) { (Get-Process -Id $targetProcessId -ErrorAction SilentlyContinue).ProcessName }"
   ].join("\r\n");
 
   const encoded = Buffer.from(script, "utf16le").toString("base64");
