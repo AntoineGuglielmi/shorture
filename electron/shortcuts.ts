@@ -76,7 +76,7 @@ const processNames: Record<TargetApplication, string[]> = {
   teams: ["ms-teams", "Teams"]
 };
 
-export async function activateApplication(application: TargetApplication): Promise<void> {
+export async function activateApplication(application: TargetApplication, toggleIfFocused = true): Promise<void> {
   if (process.platform !== "win32") {
     throw new Error("Application activation is currently available on Windows only.");
   }
@@ -104,7 +104,7 @@ export async function activateApplication(application: TargetApplication): Promi
     "  $wasAlreadyForeground = ([ShortureWindowApi]::GetForegroundWindow() -eq $handle)",
     "  if ($wasMinimized) {",
     "    [ShortureWindowApi]::ShowWindowAsync($handle, 9) | Out-Null",
-    "  } elseif ($wasAlreadyForeground) {",
+    "  } elseif ($wasAlreadyForeground -and " + (false ? "false" : "true") + ") {",
     "    if ([ShortureWindowApi]::IsZoomed($handle)) {",
     "      [ShortureWindowApi]::ShowWindowAsync($handle, 9) | Out-Null",
     "    } else {",
@@ -136,5 +136,68 @@ export async function activateApplication(application: TargetApplication): Promi
     const processError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
     const details = processError.stderr?.trim() || processError.stdout?.trim() || processError.message || "Unknown PowerShell error.";
     throw new Error("Could not activate " + application + ": " + details);
+  }
+}
+
+export async function getForegroundApplication(): Promise<TargetApplication | null> {
+  if (process.platform !== "win32") return null;
+
+  const script = [
+    "Add-Type -TypeDefinition @'",
+    "using System;",
+    "using System.Runtime.InteropServices;",
+    "public static class ShortureForegroundApi {",
+    "  [DllImport(\"user32.dll\")] public static extern IntPtr GetForegroundWindow();",
+    "  [DllImport(\"user32.dll\")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);",
+    "}",
+    "'@",
+    "$handle = [ShortureForegroundApi]::GetForegroundWindow()",
+    "$processId = [uint32]0",
+    "[ShortureForegroundApi]::GetWindowThreadProcessId($handle, [ref]$processId) | Out-Null",
+    "if ($processId -ne 0) { (Get-Process -Id $processId -ErrorAction SilentlyContinue).ProcessName }"
+  ].join("\r\n");
+
+  const encoded = Buffer.from(script, "utf16le").toString("base64");
+  try {
+    const result = await execFileAsync("powershell.exe", [
+      "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded
+    ], { windowsHide: true, timeout: 5000 });
+    const name = result.stdout.trim().toLowerCase();
+    if (name === "code") return "vscode";
+    if (name === "phpstorm64" || name === "phpstorm") return "phpstorm";
+    if (name === "chrome") return "chrome";
+    if (name === "ms-teams" || name === "teams") return "teams";
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export async function executeApplicationShortcut(application: TargetApplication, shortcut: string): Promise<void> {
+  const parts = shortcut.split("+");
+  const key = parts.pop()?.toLowerCase();
+  if (!key) throw new Error("Raccourci clavier invalide.");
+
+  const modifiers: Record<string, string> = { ctrl: "^", shift: "+", alt: "%" };
+  const prefix = parts.map((part) => modifiers[part.toLowerCase()] ?? "").join("");
+  if (prefix.length !== parts.length) throw new Error("Modificateur clavier non pris en charge.");
+  const sequence = prefix + key;
+
+  await activateApplication(application, false);
+  const script = [
+    "Add-Type -AssemblyName System.Windows.Forms",
+    "Start-Sleep -Milliseconds 100",
+    "[System.Windows.Forms.SendKeys]::SendWait('" + escapePowerShell(sequence) + "')"
+  ].join("\r\n");
+  const encoded = Buffer.from(script, "utf16le").toString("base64");
+
+  try {
+    await execFileAsync("powershell.exe", [
+      "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded
+    ], { windowsHide: true, timeout: 5000 });
+  } catch (error) {
+    const processError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
+    const details = processError.stderr?.trim() || processError.stdout?.trim() || processError.message || "Unknown PowerShell error.";
+    throw new Error("Could not send " + shortcut + " to " + application + ": " + details);
   }
 }
