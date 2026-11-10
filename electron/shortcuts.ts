@@ -67,7 +67,7 @@ function keySequence(shortcut: string): string {
   if (parts.length === 2 && parts[0].toLowerCase() === parts[1].toLowerCase()) {
     const standaloneModifiers: Record<string, string> = { ctrl: "{CTRL}", shift: "{SHIFT}", alt: "{ALT}" };
     const standalone = standaloneModifiers[parts[0].toLowerCase()];
-    if (standalone) return standalone;
+    if (standalone) return standalone + standalone;
   }
   const key = parts.pop()?.toLowerCase();
   if (!key) throw new Error("Raccourci clavier invalide.");
