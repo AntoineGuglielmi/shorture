@@ -39,7 +39,8 @@ export function createDefaultConfig(installed: InstalledApplication[] = []): Sho
 const validShortcut = (shortcut: unknown): shortcut is string =>
   typeof shortcut === "string" &&
   shortcut.length <= 40 &&
-  /^(Ctrl|Alt|Shift)(\+(Ctrl|Alt|Shift))*\+([A-Za-z0-9])$/i.test(shortcut);
+  (/^(Ctrl|Alt|Shift)(\\+(Ctrl|Alt|Shift))*\\+([A-Za-z0-9])$/i.test(shortcut) ||
+    /^(Ctrl|Alt|Shift)\\+\\1$/i.test(shortcut));
 
 export function parseConfig(value: unknown, installed: InstalledApplication[]): ShortureConfig {
   if (!value || typeof value !== "object") throw new Error("Configuration invalide.");
