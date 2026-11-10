@@ -61,10 +61,10 @@ function DesktopApp() {
     }
   };
 
-  const resetEditor = () => {
+  const resetEditor = (targetScope: "global" | "application" = scope) => {
     setEditingId(null);
-    setFingers(scope === "global" ? 2 : 1);
-    setGesture(scope === "global" ? "two-finger-swipe-right" : "one-finger-tap");
+    setFingers(targetScope === "global" ? 2 : 1);
+    setGesture(targetScope === "global" ? "two-finger-swipe-right" : "one-finger-tap");
     setShortcut("Ctrl+N");
     setGlobalAction("activate-application");
   };
@@ -206,7 +206,7 @@ function DesktopApp() {
             </article>
           ))}
         </div>
-        <button className="button secondary" style={{ marginTop: 18 }} onClick={() => { setScope("global"); resetEditor(); document.getElementById("command-editor")?.scrollIntoView({ behavior: "smooth" }); }}>Ajouter une commande globale</button>
+        <button className="button secondary" style={{ marginTop: 18 }} onClick={() => { setScope("global"); resetEditor("global"); document.getElementById("command-editor")?.scrollIntoView({ behavior: "smooth" }); }}>Ajouter une commande globale</button>
       </section>
 
       <section className="configuration-section">
@@ -251,7 +251,7 @@ function DesktopApp() {
               </div>
             </article>
           ))}
-          <button className="button secondary" style={{ marginTop: 18 }} onClick={() => { setScope("application"); resetEditor(); document.getElementById("command-editor")?.scrollIntoView({ behavior: "smooth" }); }}>Ajouter une commande</button>
+          <button className="button secondary" style={{ marginTop: 18 }} onClick={() => { setScope("application"); resetEditor("application"); document.getElementById("command-editor")?.scrollIntoView({ behavior: "smooth" }); }}>Ajouter une commande</button>
         </section>
       )}
 
@@ -279,7 +279,7 @@ function DesktopApp() {
           {scope === "global" ? <>
             <label><span>Fonctionnalité</span>
               <select value={globalAction} onChange={(event) => setGlobalAction(event.target.value as "activate-application" | "windows-shortcut")}>
-                <option value="activate-application">Ouvrir / activer une application</option><option value="windows-shortcut">Raccourci Windows</option>
+                <option value="activate-application">Ouvrir / activer une application</option><option value="windows-shortcut">Raccourci clavier global</option>
               </select>
             </label>
             {globalAction === "activate-application" ? <label><span>Application à activer</span>
