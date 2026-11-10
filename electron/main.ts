@@ -2,7 +2,7 @@ import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import path from "node:path";
 import { randomInt } from "node:crypto";
 import { createLocalServer, getLocalAddresses } from "./server";
-import { executeShortcut } from "./shortcuts";
+import { activateApplication, executeShortcut } from "./shortcuts";
 import type { GestureName, ShortcutAction, ShortcutFailure } from "./types";
 
 let mainWindow: BrowserWindow | null = null;
@@ -10,7 +10,10 @@ let targetPath: string | null = null;
 const pin = String(randomInt(100000, 999999));
 
 const actionByGesture: Record<GestureName, ShortcutAction> = {
-  "three-finger-swipe-up": "open-terminal",
+  "two-finger-swipe-left": "activate-vscode",
+  "two-finger-swipe-up": "activate-phpstorm",
+  "two-finger-swipe-right": "activate-chrome",
+  "two-finger-swipe-down": "activate-teams",
   "two-finger-tap": "save",
   "pinch-in": "undo",
   "pinch-out": "command-palette"
@@ -18,8 +21,13 @@ const actionByGesture: Record<GestureName, ShortcutAction> = {
 
 const localServer = createLocalServer(pin, {
   onGesture: async (gesture) => {
+    const action = actionByGesture[gesture];
+    if (action.startsWith("activate-")) {
+      await activateApplication(action.replace("activate-", "") as "vscode" | "phpstorm" | "chrome" | "teams");
+      return;
+    }
     if (!targetPath) throw new Error("Choisis d’abord une application sur l’ordinateur.");
-    await executeShortcut(targetPath, actionByGesture[gesture]);
+    await executeShortcut(targetPath, action);
   },
   onError: (gesture, error) => {
     const failure: ShortcutFailure = {
