@@ -108,7 +108,6 @@ ipcMain.handle("desktop:get-info", () => ({
   addresses: getLocalAddresses(),
   port: localServer.port,
   pin,
-  targetPath: null,
   config
 }));
 
