@@ -119,7 +119,7 @@ export async function activateApplication(application: InstalledApplication, tog
     "  if ($process) { break }",
     "  Start-Sleep -Milliseconds 200",
     "} while ((Get-Date) -lt $deadline)",
-    "if (-not $process) { throw 'Impossible de trouver la fenetre de cette application apres son lancement.' }"
+    "if (-not $process) { throw 'Impossible de trouver la fenetre de cette application apres son lancement.' }",
     "$handle = [IntPtr]$process.MainWindowHandle",
     "$wasMinimized = [ShortureWindowApi]::IsIconic($handle)",
     "$wasAlreadyForeground = ([ShortureWindowApi]::GetForegroundWindow() -eq $handle)",
