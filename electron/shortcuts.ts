@@ -112,7 +112,7 @@ export async function activateApplication(application: InstalledApplication, tog
     "  Start-Sleep -Milliseconds 900",
     "  $process = Get-Process -Name '" + name + "' -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1",
     "}",
-    "if (-not $process) { throw 'La fenêtre de l’application ne peut pas être trouvée.' }",
+    "if (-not $process) { throw 'Impossible de trouver la fenetre de cette application.' }",
     "$handle = [IntPtr]$process.MainWindowHandle",
     "$wasMinimized = [ShortureWindowApi]::IsIconic($handle)",
     "$wasAlreadyForeground = ([ShortureWindowApi]::GetForegroundWindow() -eq $handle)",
@@ -127,7 +127,7 @@ export async function activateApplication(application: InstalledApplication, tog
     " Start-Sleep -Milliseconds 100",
     " if ([ShortureWindowApi]::GetForegroundWindow() -eq $handle) { $active = $true; break }",
     "}",
-    "if (-not $active) { throw 'Windows n’a pas autorisé l’activation de cette fenêtre.' }"
+    "if (-not $active) { throw 'Windows ne peut pas activer cette fenetre.' }"
   ].join("\r\n");
   try { await runPowerShell(script, 12000); }
   catch (error) {
