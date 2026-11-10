@@ -1,69 +1,92 @@
 # Shorture
 
-**Shorture turns a smartphone into a touch control surface for triggering keyboard shortcuts on a computer.**
+**Shorture turns an Android phone into a configurable touch surface for controlling desktop applications.**
 
-The idea is to control common actions in a desktop application using gestures performed on a phone: save, undo, open a panel, or run a command.
+Perform a gesture on your phone to activate a desktop application or trigger an action inside the application currently in use. Shorture is designed to make frequent keyboard shortcuts and desktop actions accessible through simple touch gestures.
 
-This repository contains the **first working Shorture prototype**. Its main purpose is to validate communication between the phone and the computer, as well as Windows shortcut execution.
+This repository contains the first working prototype. It focuses on validating phone-to-desktop communication, gesture recognition, configurable commands, and Windows integration.
 
 ## Project status
 
-The prototype currently allows you to:
+The prototype currently supports:
 
-- configure global gestures that activate application windows;
-- configure application-specific gestures that send keyboard shortcuts to the application currently in the foreground;
-- add, edit, and remove gesture bindings in the desktop interface;
-- persist the configuration on the computer between launches;
-- connect a phone through a browser on the same local network;
-- display execution errors and copy their diagnostic details.
+- connecting an Android phone to the desktop application over a local network;
+- recognizing one-finger taps and two-finger gestures;
+- configuring **global commands**, which work independently of the foreground application;
+- configuring **application-specific commands**, which run only when their target application is active;
+- activating or launching installed Windows applications;
+- sending Windows keyboard shortcuts, including combinations such as `Ctrl + N`, `Ctrl + Alt + A`, and repeated modifier shortcuts such as a quick double press of `Shift`;
+- recording shortcuts by pressing the desired keys instead of typing them;
+- adding, editing, and deleting commands from the desktop interface;
+- saving the configuration between launches;
+- displaying action errors and copying diagnostic details.
 
-The gesture recognizer currently supports two-finger tap, directional swipes, and pinch gestures. The configuration model is designed to support additional gesture and action types later.
+The project is still a prototype. Gesture recognition and Windows automation may behave differently depending on the phone, browser, desktop environment, and target application.
+
+## Concepts
+
+Shorture uses a few distinct terms:
+
+- **Gesture**: the physical action, such as a tap, swipe, or pinch.
+- **Touch**: performing a gesture with one or more fingers.
+- **Command**: the association between a touch and a desktop action.
+- **Context application**: an application in which a command is allowed to run.
+
+Commands are split into two scopes:
+
+### Global commands
+
+A global command can run regardless of which application is currently active. It can, for example, activate a desktop application or send a Windows keyboard shortcut.
+
+### Application-specific commands
+
+An application-specific command runs only when its configured application is in the foreground. The current prototype uses keyboard shortcuts for these commands.
 
 ## How it works
 
 Shorture consists of two interfaces:
 
-- **Desktop application**: an Electron application built with React and TypeScript. It manages global and application-specific gesture bindings, and displays connection details.
-- **Mobile interface**: a touch-friendly web page opened in the phone's browser. No APK is required.
+- **Desktop application**: an Electron application built with React and TypeScript. It manages commands, detects installed applications, and displays connection details.
+- **Mobile interface**: a touch-friendly web page opened in the phone's browser. No Android APK is required.
 
-Both interfaces communicate over the local Wi-Fi network using WebSocket. On Windows, the desktop application uses PowerShell and the Windows `user32.dll` API to restore and bring application windows to the foreground, and `System.Windows.Forms.SendKeys` to send keyboard shortcuts.
+The phone and desktop communicate over the local network using WebSocket. On Windows, the desktop application uses PowerShell, the Windows `user32.dll` API, and `.NET System.Windows.Forms.SendKeys` to activate windows and send keyboard input. Repeated modifier shortcuts use native Windows keyboard events.
 
 ```text
-Phone (Chrome)
-     |
-     | Local Wi-Fi / WebSocket
-     v
+Android phone (browser)
+        |
+        | Local Wi-Fi / WebSocket
+        v
 Shorture (Electron)
-     |
-     | PowerShell / SendKeys
-     v
-Target application (e.g. Visual Studio Code)
+        |
+        | PowerShell / Windows APIs
+        v
+Desktop application
 ```
 
 ## Requirements
 
 - Windows 10 or Windows 11.
-- Node.js 22 LTS recommended (20 or later).
+- Node.js 22 or later.
 - npm.
-- A phone and a computer connected to the same local network.
-- A modern browser on the phone (Chrome on Android recommended).
+- An Android phone and a computer connected to the same local network.
+- A modern mobile browser (Chrome on Android is recommended).
 
-> Keyboard shortcut execution is currently Windows-specific. The mobile server is intended for local network use and should not be exposed to the Internet.
+Keyboard automation and application activation are currently Windows-specific. Shorture is intended for use on a trusted local network; do not expose its mobile server directly to the Internet.
 
 ## Installation
 
-Clone the repository from GitHub:
+Clone the prototype branch:
 
 ```powershell
 git clone --branch 001-first-prototype https://github.com/AntoineGuglielmi/shorture.git
 cd shorture
 ```
 
-Or download the branch archive directly:
+Or download the branch archive:
 
-[Download Shorture — 001-first-prototype branch](https://github.com/AntoineGuglielmi/shorture/archive/refs/heads/001-first-prototype.zip)
+[Download Shorture — 001-first-prototype](https://github.com/AntoineGuglielmi/shorture/archive/refs/heads/001-first-prototype.zip)
 
-Install the dependencies:
+Install dependencies:
 
 ```powershell
 npm install
@@ -71,37 +94,83 @@ npm install
 
 ## Run Shorture
 
-From the project root, run:
+Start the application from the project root:
 
 ```powershell
 npm run dev
 ```
 
-This command starts Vite, the Electron process compilation, and the desktop application.
-
-The Shorture application should open on your computer.
+This starts the Vite development server, compiles the Electron process, and launches the desktop application.
 
 ## Connect your phone
 
-1. Find the local address and six-digit PIN displayed in Shorture.
-2. On your phone, connected to the same Wi-Fi network, open that address in Chrome. It should look similar to `http://192.168.1.20:5173/mobile`.
-3. Enter the PIN displayed on your computer.
-4. If Windows asks for permission to access the private network, allow it.
+1. Make sure your phone and computer are connected to the same Wi-Fi network.
+2. Find the local URL and six-digit PIN displayed in Shorture.
+3. Open the displayed URL on your phone. It should look similar to `http://192.168.1.20:5173/mobile`.
+4. Enter the PIN shown on the desktop application.
+5. If Windows Firewall asks for permission, allow access on private networks.
 
 Once connected, the phone's touch surface is ready to receive gestures.
 
-## Gesture configuration
+## Gestures
 
-The desktop interface separates bindings into two contexts:
+The current recognizer supports:
 
-- **Global**: a gesture runs independently of the foreground application. The default directional swipes activate VS Code, PhpStorm, Chrome, and Teams.
-- **Application-specific**: a gesture runs only when its configured application is currently in the foreground. The default two-finger tap sends `Ctrl + S`, pinch in sends `Ctrl + Z`, and pinch out sends `Ctrl + Shift + P`.
+| Fingers | Gesture |
+| --- | --- |
+| 1 | Tap |
+| 2 | Tap |
+| 2 | Swipe left, right, up, or down |
+| 2 | Pinch in or out |
 
-Bindings can be added, edited, and removed in the desktop interface. Changes are stored in `shorture.config.json` in Electron's user data directory and are kept between launches. Global bindings take precedence over application-specific bindings when the same gesture is configured in both contexts.
+Three-finger gestures are not currently supported. Some Android manufacturers intercept system gestures before the browser can receive them. On the tested Redmi / MIUI environment, three-finger gestures can conflict with built-in system shortcuts, so Shorture avoids relying on them.
 
-Application activation targets an already running window. Minimized windows are restored before Shorture attempts to bring them to the foreground. Repeating the same global activation gesture while the window is already focused toggles between maximized and restored size. Windows may still restrict foreground activation in some situations; if that happens, Shorture reports an error.
+For reliable detection, perform gestures within the mobile touch surface and avoid starting swipes at the very edge of the screen.
 
-The current prototype recognizes two-finger gestures only. The configuration model leaves room for additional finger counts and action types in later iterations.
+## Configure commands
+
+The desktop interface separates commands into two scopes:
+
+- **Global**: commands that are available regardless of the foreground application.
+- **Application-specific**: commands associated with an installed application and triggered only while that application is active.
+
+You can add, edit, and delete commands in either scope. The application picker is populated from Windows Start Menu shortcuts.
+
+When configuring a command, select the number of fingers, the gesture, and the action. Depending on the scope, actions can activate an application or send a keyboard shortcut.
+
+### Record a keyboard shortcut
+
+Click the shortcut recording area, then press the desired key combination. Shorture records the keys directly, so you do not have to type the shortcut manually.
+
+Examples include:
+
+- `Ctrl + N`
+- `Shift + A`
+- `Ctrl + Alt + A`
+- a quick double press of `Shift` (as used by PhpStorm's Search Everywhere).
+
+Press `Escape` to cancel shortcut recording.
+
+### Default configuration
+
+When Visual Studio Code is detected among the installed applications, the initial configuration includes:
+
+- a global two-finger swipe left to activate Visual Studio Code;
+- a Visual Studio Code command using a one-finger tap to send `Ctrl + N` (new file).
+
+No other default commands are added. You can change or remove these commands in the desktop interface.
+
+### Application activation
+
+When a global command activates an application, Shorture first looks for an existing window. If the application is not running, Shorture attempts to launch it and waits for its main window.
+
+If the target window is minimized, it is restored. If it is already focused, repeating the activation command toggles between maximized and restored size. Otherwise, Shorture attempts to bring it to the foreground.
+
+Windows can restrict foreground activation in some situations. If activation or shortcut execution fails, the desktop interface displays an error with diagnostic details.
+
+### Configuration storage
+
+The configuration is stored locally in `shorture.config.json` inside Electron's user data directory and is kept between launches.
 
 ## Checks and useful commands
 
@@ -112,38 +181,55 @@ Run these commands from the project root:
 | `npm run dev` | Start the application in development mode |
 | `npm run typecheck` | Check TypeScript types |
 | `npm run build` | Type-check and build the project |
+| `npm start` | Start the built Electron application |
 
 ## Troubleshooting
 
 ### The phone cannot connect
 
 - Make sure the phone and computer are connected to the same Wi-Fi network.
-- Make sure the Windows network profile is set to Private.
-- Allow Node.js / Electron through the Windows Firewall on private networks.
-- Check that the address entered on the phone matches the one displayed in Shorture.
+- Make sure the Windows network profile is set to **Private**.
+- Allow Node.js / Electron through Windows Firewall on private networks.
+- Check that the URL entered on the phone matches the one displayed in Shorture.
+- Make sure the six-digit PIN is entered correctly.
 
-### The gesture is detected, but the shortcut is not executed
+### The gesture is detected, but the action is not executed
 
-- Check the diagnostics panel in the desktop application.
-- Use the copy-diagnostics button to retrieve the full error details.
+- Check that the configured command matches the number of fingers and gesture performed.
+- For an application-specific command, make sure its target application is currently in the foreground.
+- Open the diagnostics details in the desktop interface and use the copy button to retrieve the full error.
+- Some applications may handle particular keyboard shortcuts differently.
 
 ### Multi-touch gestures are not detected correctly
 
 - Use Chrome on Android.
 - Perform gestures inside Shorture's touch surface.
-- Some phone system gestures or Android customizations may intercept movements, especially near the edges of the screen.
+- Avoid the edges of the screen, where Android system gestures may take priority.
+- Some manufacturer-specific Android features can intercept gestures before the browser receives them.
 
 ### Electron does not start after installation
 
-First, make sure dependency installation completed successfully. If the Electron binary for Windows was not downloaded, delete `node_modules`, run `npm install` again, and check once more.
+Make sure dependency installation completed successfully. If the Electron binary was not downloaded, try:
+
+```powershell
+npm rebuild electron
+```
+
+If the issue persists, remove `node_modules` and reinstall dependencies:
+
+```powershell
+Remove-Item -Recurse -Force node_modules
+npm install
+```
 
 ## Current limitations
 
-- Windows only for shortcut execution.
-- The current gesture recognizer supports two fingers only.
-- Application activation currently requires the target application to be running.
-- Application-specific actions currently send keyboard shortcuts; other action types can be added later.
-- Gesture detection depends on the browser and touch hardware.
+- Windows only for desktop automation and keyboard shortcut execution.
+- One- and two-finger gestures only.
+- Gesture recognition depends on the phone, browser, and touch hardware.
+- Three-finger gestures may be intercepted by Android system features.
+- The installed application list is based on Windows Start Menu shortcuts.
+- Application-specific commands currently support keyboard shortcuts; other action types may be added later.
 - The phone and computer must remain on the same local network.
 
 ## Tech stack
@@ -153,5 +239,6 @@ First, make sure dependency installation completed successfully. If the Electron
 - TypeScript
 - Vite
 - WebSocket (`ws`)
-- PowerShell and Windows `user32.dll` API for window activation
-- `System.Windows.Forms.SendKeys` for keyboard shortcuts
+- PowerShell
+- Windows `user32.dll` API for window activation and native modifier key events
+- `.NET System.Windows.Forms.SendKeys` for standard keyboard shortcuts
