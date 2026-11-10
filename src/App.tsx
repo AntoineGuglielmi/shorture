@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import type { KeyboardEvent, PointerEvent } from "react";
+import type { PointerEvent } from "react";
 import type { ContextApp, DesktopInfo, GestureCommand, GestureName, ShortureConfig, ShortcutFailure } from "../electron/types";
 import { gestures } from "../electron/config";
 import { QRCodeSVG } from "qrcode.react";
@@ -20,49 +20,83 @@ const gestureLabels: Record<GestureName, string> = {
 function ShortcutRecorder({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const [listening, setListening] = useState(false);
   const pressed = useRef(new Set<string>());
+  const lastModifierPress = useRef<{ modifier: string; at: number } | null>(null);
 
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+  useEffect(() => {
     if (!listening) return;
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.key === "Escape") {
-      setListening(false);
-      pressed.current.clear();
-      return;
-    }
 
-    const modifier = ["Control", "Alt", "Shift"].includes(event.key);
-    if (modifier) {
-      pressed.current.add(event.code);
-      const modifiers = [...pressed.current]
-        .map((code) => code.startsWith("Shift") ? "Shift" : code.startsWith("Control") ? "Ctrl" : code.startsWith("Alt") ? "Alt" : "")
-        .filter(Boolean);
-      const counts = modifiers.reduce<Record<string, number>>((result, item) => {
-        result[item] = (result[item] ?? 0) + 1;
-        return result;
-      }, {});
-      const duplicate = Object.entries(counts).find(([, count]) => count > 1);
-      if (duplicate) { onChange(`${duplicate[0]}+${duplicate[0]}`); setListening(false); pressed.current.clear(); }
-      else if (modifiers.length > 1) onChange([...new Set(modifiers)].join("+"));
-      return;
-    }
+    const getModifier = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Control") return "Ctrl";
+      if (event.key === "Alt") return "Alt";
+      if (event.key === "Shift") return "Shift";
+      return null;
+    };
 
-    const modifiers = [...pressed.current]
+    const getPressedModifiers = () => [...pressed.current]
       .map((code) => code.startsWith("Shift") ? "Shift" : code.startsWith("Control") ? "Ctrl" : code.startsWith("Alt") ? "Alt" : "")
       .filter(Boolean);
-    const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
-    onChange([...new Set(modifiers), key].join("+"));
-    setListening(false);
-    pressed.current.clear();
-  };
 
-  const onKeyUp = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (listening) {
+    const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (event.key === "Escape") {
+        pressed.current.clear();
+        lastModifierPress.current = null;
+        setListening(false);
+        return;
+      }
+
+      const modifier = getModifier(event);
+      if (modifier) {
+        const alreadyPressed = [...pressed.current].some((code) => {
+          const pressedModifier = code.startsWith("Shift") ? "Shift" : code.startsWith("Control") ? "Ctrl" : code.startsWith("Alt") ? "Alt" : "";
+          return pressedModifier === modifier && code !== event.code;
+        });
+
+        const lastPress = lastModifierPress.current;
+        const pressedTwice = lastPress?.modifier === modifier && Date.now() - lastPress.at <= 800;
+
+        if (!event.repeat && (alreadyPressed || pressedTwice)) {
+          onChange(`${modifier}+${modifier}`);
+          pressed.current.clear();
+          lastModifierPress.current = null;
+          setListening(false);
+          return;
+        }
+
+        if (!event.repeat) {
+          pressed.current.add(event.code);
+          lastModifierPress.current = { modifier, at: Date.now() };
+        }
+
+        const modifiers = getPressedModifiers();
+        if (modifiers.length > 1) onChange([...new Set(modifiers)].join("+"));
+        return;
+      }
+
+      const modifiers = getPressedModifiers();
+      const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
+      onChange([...new Set(modifiers), key].join("+"));
+      pressed.current.clear();
+      lastModifierPress.current = null;
+      setListening(false);
+    };
+
+    const handleKeyUp = (event: globalThis.KeyboardEvent) => {
       event.preventDefault();
       event.stopPropagation();
       pressed.current.delete(event.code);
-    }
-  };
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keyup", handleKeyUp, true);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("keyup", handleKeyUp, true);
+    };
+  }, [listening, onChange]);
 
   return (
     <div
@@ -70,17 +104,22 @@ function ShortcutRecorder({ value, onChange }: { value: string; onChange: (value
       role="button"
       tabIndex={0}
       aria-label="Enregistrer un raccourci clavier"
-      onClick={(event) => { event.currentTarget.focus(); pressed.current.clear(); setListening(true); }}
-      onBlur={() => { setListening(false); pressed.current.clear(); }}
-      onKeyDown={onKeyDown}
-      onKeyUp={onKeyUp}
+      onClick={() => {
+        pressed.current.clear();
+        lastModifierPress.current = null;
+        setListening(true);
+      }}
+      onBlur={() => {
+        setListening(false);
+        pressed.current.clear();
+        lastModifierPress.current = null;
+      }}
     >
       <strong>{listening ? "Appuie sur ton raccourci…" : value || "Cliquer pour enregistrer"}</strong>
-      <span>{listening ? "Échap pour annuler" : "Cliquer pour modifier"}</span>
+      <span>{listening ? "Échap pour annuler · double appui possible sur un modificateur" : "Cliquer pour modifier"}</span>
     </div>
   );
 }
-
 function DesktopApp() {
   const [info, setInfo] = useState<DesktopInfo | null>(null);
   const [config, setConfig] = useState<ShortureConfig | null>(null);
