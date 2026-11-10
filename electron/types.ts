@@ -7,3 +7,11 @@ export type DesktopInfo = {
   pin: string;
   targetPath: string | null;
 };
+
+export type ShortcutFailure = {
+  gesture: GestureName;
+  action: ShortcutAction;
+  message: string;
+  details: string;
+  occurredAt: string;
+};
