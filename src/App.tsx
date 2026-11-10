@@ -11,7 +11,10 @@ type ServerMessage = {
 
 const gestureLabels: Record<GestureName, string> = {
   "two-finger-tap": "Double appui à deux doigts",
-  "three-finger-swipe-up": "Glissement de trois doigts vers le haut",
+  "two-finger-swipe-left": "Glissement de deux doigts vers la gauche",
+  "two-finger-swipe-right": "Glissement de deux doigts vers la droite",
+  "two-finger-swipe-up": "Glissement de deux doigts vers le haut",
+  "two-finger-swipe-down": "Glissement de deux doigts vers le bas",
   "pinch-in": "Pincement (rapprocher)",
   "pinch-out": "Pincement (écarter)"
 };
@@ -113,9 +116,12 @@ function DesktopApp() {
           <p className="eyebrow">03 / GESTES CONFIGURÉS</p>
           <h2>Raccourcis de test</h2>
           <ul className="mapping-list">
-            <li><span>3 doigts ↑</span><kbd>Ctrl + Shift + P</kbd><small>Ouvrir le terminal intégré (commande)</small></li>
-            <li><span>2 doigts · tap</span><kbd>Ctrl + S</kbd><small>Enregistrer</small></li>
-            <li><span>Pincement entrant</span><kbd>Ctrl + Z</kbd><small>Annuler</small></li>
+            <li><span>2 doigts ←</span><kbd>VS Code</kbd><small>Activer la fenêtre</small></li>
+            <li><span>2 doigts ↑</span><kbd>PhpStorm</kbd><small>Activer la fenêtre</small></li>
+            <li><span>2 doigts →</span><kbd>Chrome</kbd><small>Activer la fenêtre</small></li>
+            <li><span>2 doigts ↓</span><kbd>Teams</kbd><small>Activer la fenêtre</small></li>
+            <li><span>2 doigts · tap</span><kbd>Ctrl + S</kbd><small>Enregistrer dans l’application cible</small></li>
+            <li><span>Pincement entrant</span><kbd>Ctrl + Z</kbd><small>Annuler dans l’application cible</small></li>
             <li><span>Pincement sortant</span><kbd>Ctrl + Shift + P</kbd><small>Palette de commandes</small></li>
           </ul>
         </article>
@@ -188,7 +194,6 @@ function MobileApp() {
   const gestureStart = useRef<{ count: number; points: Array<{ x: number; y: number }>; time: number } | null>(null);
   const moved = useRef(false);
   const touchPadRef = useRef<HTMLDivElement | null>(null);
-  const touchSwipe = useRef<{ identifiers: number[]; startY: number; triggered: boolean } | null>(null);
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -237,14 +242,32 @@ function MobileApp() {
     });
     const currentPoints = [...pointerMap.current.values()];
 
-    if (start && startCount >= 2 && currentPoints.length >= 2) {
-      if (startCount === 2) {
-        const startDistance = Math.hypot(start.points[0].x - start.points[1].x, start.points[0].y - start.points[1].y);
-        const endDistance = Math.hypot(currentPoints[0].x - currentPoints[1].x, currentPoints[0].y - currentPoints[1].y);
-        const delta = endDistance - startDistance;
+    if (start && startCount === 2 && currentPoints.length === 2) {
+      const startCenter = {
+        x: (start.points[0].x + start.points[1].x) / 2,
+        y: (start.points[0].y + start.points[1].y) / 2
+      };
+      const endCenter = {
+        x: (currentPoints[0].x + currentPoints[1].x) / 2,
+        y: (currentPoints[0].y + currentPoints[1].y) / 2
+      };
+      const deltaX = endCenter.x - startCenter.x;
+      const deltaY = endCenter.y - startCenter.y;
+      const startDistance = Math.hypot(start.points[0].x - start.points[1].x, start.points[0].y - start.points[1].y);
+      const endDistance = Math.hypot(currentPoints[0].x - currentPoints[1].x, currentPoints[0].y - currentPoints[1].y);
+      const pinchDelta = endDistance - startDistance;
+      const swipeDistance = Math.hypot(deltaX, deltaY);
 
-        if (Math.abs(delta) > 45) sendGesture(delta < 0 ? "pinch-in" : "pinch-out");
-        else if (!moved.current && Date.now() - start.time < 450) sendGesture("two-finger-tap");
+      if (swipeDistance > 65 && swipeDistance > Math.abs(pinchDelta) * 1.2) {
+        if (Math.abs(deltaX) > Math.abs(deltaY)) {
+          sendGesture(deltaX < 0 ? "two-finger-swipe-left" : "two-finger-swipe-right");
+        } else {
+          sendGesture(deltaY < 0 ? "two-finger-swipe-up" : "two-finger-swipe-down");
+        }
+      } else if (Math.abs(pinchDelta) > 45) {
+        sendGesture(pinchDelta < 0 ? "pinch-in" : "pinch-out");
+      } else if (!moved.current && Date.now() - start.time < 450) {
+        sendGesture("two-finger-tap");
       }
     }
 
@@ -261,71 +284,7 @@ function MobileApp() {
     setTouchDebug(`POINTERCANCEL · ${event.pointerType} · ${pointerMap.current.size} contact(s) · geste annulé`);
   };
 
-  useEffect(() => {
-    const pad = touchPadRef.current;
-    if (!pad) return;
 
-    const onTouchStart = (event: TouchEvent) => {
-      setTouchDebug(`TOUCHSTART · ${event.touches.length} contact(s)`);
-      if (event.touches.length < 3) return;
-
-      if (event.cancelable) event.preventDefault();
-      const contacts = Array.from(event.touches).slice(0, 3);
-      touchSwipe.current = {
-        identifiers: contacts.map((touch) => touch.identifier),
-        startY: contacts.reduce((sum, touch) => sum + touch.clientY, 0) / contacts.length,
-        triggered: false
-      };
-      setTouchDebug(`TOUCHSTART · ${event.touches.length} contacts · suivi natif`);
-    };
-
-    const onTouchMove = (event: TouchEvent) => {
-      const gesture = touchSwipe.current;
-      if (!gesture || gesture.triggered) return;
-
-      if (event.cancelable) event.preventDefault();
-      const activeContacts = Array.from(event.touches).filter((touch) =>
-        gesture.identifiers.includes(touch.identifier)
-      );
-      if (activeContacts.length !== gesture.identifiers.length) return;
-
-      const currentY = activeContacts.reduce((sum, touch) => sum + touch.clientY, 0) / activeContacts.length;
-      const deltaY = gesture.startY - currentY;
-      setTouchDebug(`TOUCHMOVE · ${activeContacts.length} contacts · ΔY ${Math.round(deltaY)} px`);
-
-      if (deltaY > 45) {
-        gesture.triggered = true;
-        sendGesture("three-finger-swipe-up");
-        setTouchDebug(`SWIPE NATIF RECONNU · ΔY ${Math.round(deltaY)} px`);
-      }
-    };
-
-    const onTouchEnd = (event: TouchEvent) => {
-      if (!touchSwipe.current) return;
-      if (event.touches.length < 3) {
-        setTouchDebug(`TOUCHEND · ${event.touches.length} contact(s) restant(s)`);
-        touchSwipe.current = null;
-      }
-    };
-
-    const onTouchCancel = (event: TouchEvent) => {
-      if (!touchSwipe.current) return;
-      setTouchDebug(`TOUCHCANCEL · ${event.touches.length} contact(s) · système/navigateur a interrompu le geste`);
-      touchSwipe.current = null;
-    };
-
-    pad.addEventListener("touchstart", onTouchStart, { passive: false });
-    pad.addEventListener("touchmove", onTouchMove, { passive: false });
-    pad.addEventListener("touchend", onTouchEnd, { passive: false });
-    pad.addEventListener("touchcancel", onTouchCancel, { passive: false });
-
-    return () => {
-      pad.removeEventListener("touchstart", onTouchStart);
-      pad.removeEventListener("touchmove", onTouchMove);
-      pad.removeEventListener("touchend", onTouchEnd);
-      pad.removeEventListener("touchcancel", onTouchCancel);
-    };
-  }, [sendGesture]);
 
   return (
     <main className="mobile-shell">
@@ -362,7 +321,7 @@ function MobileApp() {
             <div className="touch-center">
               <span className="touch-cross">＋</span>
               <strong>TOUCHE ICI</strong>
-              <small>2 ou 3 doigts · glisse · pince</small>
+              <small>2 doigts · glisse · pince</small>
             </div>
           </div>
           <div className="mobile-feedback">
