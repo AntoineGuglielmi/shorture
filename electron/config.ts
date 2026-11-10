@@ -27,7 +27,7 @@ export function createDefaultConfig(installed: InstalledApplication[] = []): Sho
       id: crypto.randomUUID(),
       application: vscode,
       commands: [{
-        id: randomUUID(),
+        id: crypto.randomUUID(),
         fingers: 1,
         gesture: "one-finger-tap",
         action: { type: "keyboard-shortcut", shortcut: "Ctrl+N" }
