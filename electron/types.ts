@@ -1,5 +1,20 @@
-export type GestureName = "two-finger-tap" | "three-finger-swipe-up" | "pinch-in" | "pinch-out";
-export type ShortcutAction = "command-palette" | "open-terminal" | "save" | "undo";
+export type GestureName =
+  | "two-finger-tap"
+  | "two-finger-swipe-left"
+  | "two-finger-swipe-right"
+  | "two-finger-swipe-up"
+  | "two-finger-swipe-down"
+  | "pinch-in"
+  | "pinch-out";
+export type ShortcutAction =
+  | "command-palette"
+  | "open-terminal"
+  | "save"
+  | "undo"
+  | "activate-vscode"
+  | "activate-phpstorm"
+  | "activate-chrome"
+  | "activate-teams";
 
 export type DesktopInfo = {
   addresses: string[];
