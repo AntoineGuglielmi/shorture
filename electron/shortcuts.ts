@@ -48,7 +48,13 @@ export async function executeShortcut(executablePath: string, action: ShortcutAc
   ].join("; ");
 
   const encoded = Buffer.from(script, "utf16le").toString("base64");
-  await execFileAsync("powershell.exe", [
-    "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded
-  ], { windowsHide: true, timeout: 10000 });
+  try {
+    await execFileAsync("powershell.exe", [
+      "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded
+    ], { windowsHide: true, timeout: 10000 });
+  } catch (error) {
+    const processError = error as NodeJS.ErrnoException & { stderr?: string; stdout?: string };
+    const details = processError.stderr?.trim() || processError.stdout?.trim() || processError.message || "Erreur PowerShell inconnue.";
+    throw new Error(`Impossible d'exécuter le raccourci « ${action} » : ${details}`);
+  }
 }
