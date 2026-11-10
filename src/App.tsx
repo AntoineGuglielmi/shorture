@@ -67,7 +67,7 @@ function DesktopApp() {
 
       {shortcutFailure && (
         <section className="panel" style={{ marginTop: 24, padding: 20, border: "1px solid #b85c5c" }}>
-          <p className="eyebrow">ERREUR DE RACCOURCI · {shortcutFailure.action}</p>
+          <p className="eyebrow">ERREUR D’ACTION · {shortcutFailure.action}</p>
           <h2>Impossible d’exécuter le geste</h2>
           <p className="muted">{shortcutFailure.message}</p>
           <p className="muted">{new Date(shortcutFailure.occurredAt).toLocaleString()}</p>
