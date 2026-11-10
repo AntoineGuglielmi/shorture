@@ -3,7 +3,7 @@ import path from "node:path";
 import { randomInt } from "node:crypto";
 import { createLocalServer, getLocalAddresses } from "./server";
 import { executeShortcut } from "./shortcuts";
-import type { GestureName, ShortcutAction } from "./types";
+import type { GestureName, ShortcutAction, ShortcutFailure } from "./types";
 
 let mainWindow: BrowserWindow | null = null;
 let targetPath: string | null = null;
@@ -20,6 +20,16 @@ const localServer = createLocalServer(pin, {
   onGesture: async (gesture) => {
     if (!targetPath) throw new Error("Choisis d’abord une application sur l’ordinateur.");
     await executeShortcut(targetPath, actionByGesture[gesture]);
+  },
+  onError: (gesture, error) => {
+    const failure: ShortcutFailure = {
+      gesture,
+      action: actionByGesture[gesture],
+      message: error instanceof Error ? error.message : "Erreur inconnue.",
+      details: error instanceof Error && error.stack ? error.stack : String(error),
+      occurredAt: new Date().toISOString()
+    };
+    mainWindow?.webContents.send("desktop:shortcut-error", failure);
   }
 });
 
