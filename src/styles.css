@@ -124,3 +124,20 @@ a { color: inherit; }
   .binding-form { grid-template-columns: 1fr; }
   .form-actions { grid-column: auto; align-items: flex-start; flex-direction: column; }
 }
+
+
+.application-picker { display: flex; gap: 12px; align-items: center; margin: 18px 0; }
+.application-picker select { flex: 1; min-width: 0; min-height: 46px; border: 1px solid #383a42; border-radius: 7px; padding: 10px 12px; background: #101114; color: #f3f0e9; }
+.application-picker button:disabled { opacity: .45; cursor: not-allowed; }
+.context-app-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 16px; }
+.context-app-card { display: flex; justify-content: space-between; align-items: center; gap: 12px; text-align: left; border: 1px solid var(--line); border-radius: 10px; padding: 17px; background: #17181d; color: #f3f0e9; }
+.context-app-card.selected { border-color: var(--accent); background: #20251b; }
+.context-app-card span:first-child { display: grid; gap: 6px; }
+.context-app-card strong { font-size: 13px; }
+.context-app-card small { color: var(--muted); font: 10px "DM Mono", monospace; }
+.context-app-card > span:last-child { color: var(--accent); }
+.context-detail { padding-top: 24px; border-top: 1px solid var(--line); }
+@media (max-width: 720px) {
+  .application-picker { align-items: stretch; flex-direction: column; }
+  .context-app-list { grid-template-columns: 1fr; }
+}
