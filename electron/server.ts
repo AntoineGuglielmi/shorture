@@ -4,7 +4,10 @@ import { WebSocketServer } from "ws";
 import type { GestureName } from "./types";
 
 type GestureMessage = { type: "gesture"; gesture: GestureName; pin: string };
-type ServerOptions = { onGesture: (gesture: GestureName) => Promise<void> };
+type ServerOptions = {
+  onGesture: (gesture: GestureName) => Promise<void>;
+  onError: (gesture: GestureName, error: unknown) => void;
+};
 const PORT = 8787;
 
 export function getLocalAddresses(): string[] {
@@ -60,7 +63,8 @@ export function createLocalServer(pin: string, options: ServerOptions) {
         await options.onGesture(message.gesture);
         client.send(JSON.stringify({ type: "executed", gesture: message.gesture }));
       } catch (error) {
-        client.send(JSON.stringify({ type: "error", message: error instanceof Error ? error.message : "Erreur inconnue." }));
+        options.onError(message.gesture, error);
+        client.send(JSON.stringify({ type: "error", message: "Action impossible. Consulte le journal sur l’ordinateur." }));
       }
     });
   });
