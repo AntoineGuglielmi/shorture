@@ -22,7 +22,7 @@ Gestures and shortcuts are predefined. There is no configuration editor or custo
 
 Shorture consists of two interfaces:
 
-- **Desktop application**: an Electron application built with React and TypeScript. It lets you select the application to control and displays connection details.
+- **Desktop application**: an Electron application built with React and TypeScript. It manages global and application-specific gesture bindings, and displays connection details.
 - **Mobile interface**: a touch-friendly web page opened in the phone's browser. No APK is required.
 
 Both interfaces communicate over the local Wi-Fi network using WebSocket. On Windows, the desktop application uses PowerShell and the Windows `user32.dll` API to restore and bring application windows to the foreground, and `System.Windows.Forms.SendKeys` to send keyboard shortcuts.
@@ -90,21 +90,18 @@ The Shorture application should open on your computer.
 
 Once connected, the phone's touch surface is ready to receive gestures.
 
-## Available gestures
+## Gesture configuration
 
-The following gestures are currently mapped to predefined actions:
+The desktop interface separates bindings into two contexts:
 
-| Gesture | Action |
-| --- | --- |
-| Two-finger swipe left | Activate the VS Code window |
-| Two-finger swipe up | Activate the PhpStorm window |
-| Two-finger swipe right | Activate the Chrome window |
-| Two-finger swipe down | Activate the Microsoft Teams window |
-| Two-finger tap | Send `Ctrl + S` to the selected application |
-| Pinch in | Send `Ctrl + Z` to the selected application |
-| Pinch out | Send `Ctrl + Shift + P` to the selected application |
+- **Global**: a gesture runs independently of the foreground application. The default directional swipes activate VS Code, PhpStorm, Chrome, and Teams.
+- **Application-specific**: a gesture runs only when its configured application is currently in the foreground. The default two-finger tap sends `Ctrl + S`, pinch in sends `Ctrl + Z`, and pinch out sends `Ctrl + Shift + P`.
 
-Application activation targets an already running window. Minimized windows are restored before Shorture attempts to bring them to the foreground. Repeating the same gesture while the window is already focused toggles between maximized and restored size. Windows may still restrict foreground activation in some situations; if that happens, Shorture reports an error. If the application is not open, Shorture reports an error rather than launching an application whose installation path may vary. VS Code, PhpStorm, Chrome, and Microsoft Teams are matched using their Windows process names.
+Bindings can be added, edited, and removed in the desktop interface. Changes are stored in `shorture.config.json` in Electron's user data directory and are kept between launches. Global bindings take precedence over application-specific bindings when the same gesture is configured in both contexts.
+
+Application activation targets an already running window. Minimized windows are restored before Shorture attempts to bring them to the foreground. Repeating the same global activation gesture while the window is already focused toggles between maximized and restored size. Windows may still restrict foreground activation in some situations; if that happens, Shorture reports an error.
+
+The current prototype recognizes two-finger gestures only. The configuration model leaves room for additional finger counts and action types in later iterations.
 
 ## Checks and useful commands
 
@@ -159,4 +156,4 @@ First, make sure dependency installation completed successfully. If the Electron
 - TypeScript
 - Vite
 - WebSocket (`ws`)
-- PowerShell and Windows Script Host for shortcut execution
+- PowerShell and Windows `user32.dll` API for window activation\n- `System.Windows.Forms.SendKeys` for keyboard shortcuts
