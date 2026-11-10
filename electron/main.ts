@@ -9,7 +9,7 @@ let targetPath: string | null = null;
 const pin = String(randomInt(100000, 999999));
 
 const actionByGesture: Record<GestureName, ShortcutAction> = {
-  "three-finger-swipe-up": "command-palette",
+  "three-finger-swipe-up": "open-terminal",
   "two-finger-tap": "save",
   "pinch-in": "undo",
   "pinch-out": "command-palette"

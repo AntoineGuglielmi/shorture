@@ -41,7 +41,7 @@ L'application Shorture s'ouvre sur le PC. Le serveur mobile écoute sur le rése
 
 | Geste | Raccourci | Résultat attendu |
 | --- | --- | --- |
-| Glissement de trois doigts vers le haut | Ctrl + Shift + P | Palette de commandes VS Code |
+| Glissement de trois doigts vers le haut | Ctrl + Shift + P puis commande « Terminal: Create New Terminal » | Ouvrir le terminal intégré VS Code |
 | Appui simultané de deux doigts | Ctrl + S | Enregistrer |
 | Pincement entrant | Ctrl + Z | Annuler |
 | Pincement sortant | Ctrl + Shift + P | Palette de commandes |

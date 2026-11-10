@@ -85,7 +85,7 @@ function DesktopApp() {
           <p className="eyebrow">03 / GESTES CONFIGURÉS</p>
           <h2>Raccourcis de test</h2>
           <ul className="mapping-list">
-            <li><span>3 doigts ↑</span><kbd>Ctrl + Shift + P</kbd><small>Palette de commandes</small></li>
+            <li><span>3 doigts ↑</span><kbd>Ctrl + Shift + P</kbd><small>Ouvrir le terminal intégré (commande)</small></li>
             <li><span>2 doigts · tap</span><kbd>Ctrl + S</kbd><small>Enregistrer</small></li>
             <li><span>Pincement entrant</span><kbd>Ctrl + Z</kbd><small>Annuler</small></li>
             <li><span>Pincement sortant</span><kbd>Ctrl + Shift + P</kbd><small>Palette de commandes</small></li>

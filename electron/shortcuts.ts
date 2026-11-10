@@ -5,10 +5,11 @@ import type { ShortcutAction } from "./types";
 
 const execFileAsync = promisify(execFile);
 
-const keySequences: Record<ShortcutAction, string> = {
-  "command-palette": "^+p",
-  save: "^s",
-  undo: "^z"
+const keySequences: Record<ShortcutAction, string[]> = {
+  "command-palette": ["^+p"],
+  "open-terminal": ["^+p", "Terminal: Create New Terminal", "{ENTER}"],
+  save: ["^s"],
+  undo: ["^z"]
 };
 
 function escapePowerShell(value: string): string {
@@ -27,6 +28,11 @@ export async function executeShortcut(executablePath: string, action: ShortcutAc
   const keys = keySequences[action];
   if (!keys) throw new Error("Raccourci non pris en charge.");
 
+  const sendKeys = keys.map((sequence, index) => {
+    const wait = index === 0 && keys.length > 1 ? "Start-Sleep -Milliseconds 250; " : "";
+    return wait + "[System.Windows.Forms.SendKeys]::SendWait('" + escapePowerShell(sequence) + "')";
+  }).join("; ");
+
   const script = [
     "$ErrorActionPreference = 'Stop'",
     "$name = '" + safeName + "'",
@@ -38,7 +44,7 @@ export async function executeShortcut(executablePath: string, action: ShortcutAc
     "if (-not $shell.AppActivate($process.Id)) { throw 'Impossible d’activer la fenêtre de l’application.' }",
     "Start-Sleep -Milliseconds 180",
     "Add-Type -AssemblyName System.Windows.Forms",
-    "[System.Windows.Forms.SendKeys]::SendWait('" + keys + "')"
+    sendKeys
   ].join("; ");
 
   const encoded = Buffer.from(script, "utf16le").toString("base64");
