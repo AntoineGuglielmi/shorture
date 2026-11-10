@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DesktopInfo } from "../electron/preload";
-import type { GestureName } from "../electron/server";
+import type { PointerEvent } from "react";
+import type { DesktopInfo, GestureName } from "../electron/types";
 
 type ServerMessage = {
   type: "connected" | "executed" | "error";
@@ -151,11 +151,11 @@ function MobileApp() {
   const gestureStart = useRef<{ count: number; points: Array<{ x: number; y: number }>; time: number } | null>(null);
   const moved = useRef(false);
 
-  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
     pointerMap.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
-    if (pointerMap.current.size >= 2 && !gestureStart.current) {
+    if (pointerMap.current.size >= 2) {
       gestureStart.current = {
         count: pointerMap.current.size,
         points: [...pointerMap.current.values()].map((point) => ({ ...point })),

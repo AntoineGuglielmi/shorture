@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 
-import type { DesktopInfo } from "../electron/preload";
+import type { DesktopInfo } from "../electron/types";
 
 declare global {
   interface Window {

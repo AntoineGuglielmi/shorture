@@ -1,10 +1,9 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
+import type { ShortcutAction } from "./types";
 
 const execFileAsync = promisify(execFile);
-
-export type ShortcutAction = "command-palette" | "save" | "undo";
 
 const keySequences: Record<ShortcutAction, string> = {
   "command-palette": "^+p",
@@ -16,11 +15,7 @@ function escapePowerShell(value: string): string {
   return value.replace(/'/g, "''");
 }
 
-/**
- * Windows-only first prototype.
- * Uses WScript.Shell to focus the selected process and SendKeys to dispatch
- * a small, explicit allow-list of shortcuts. No arbitrary shell command is accepted.
- */
+/** Windows-only shortcut dispatch using an explicit allow-list of key sequences. */
 export async function executeShortcut(executablePath: string, action: ShortcutAction): Promise<void> {
   if (process.platform !== "win32") {
     throw new Error("L'exécution des raccourcis est actuellement disponible uniquement sous Windows.");
@@ -30,10 +25,7 @@ export async function executeShortcut(executablePath: string, action: ShortcutAc
   const safeName = escapePowerShell(processName);
   const safePath = escapePowerShell(executablePath);
   const keys = keySequences[action];
-
-  if (!keys) {
-    throw new Error("Raccourci non pris en charge.");
-  }
+  if (!keys) throw new Error("Raccourci non pris en charge.");
 
   const script = [
     "$ErrorActionPreference = 'Stop'",
@@ -51,9 +43,6 @@ export async function executeShortcut(executablePath: string, action: ShortcutAc
 
   const encoded = Buffer.from(script, "utf16le").toString("base64");
   await execFileAsync("powershell.exe", [
-    "-NoProfile",
-    "-NonInteractive",
-    "-ExecutionPolicy", "Bypass",
-    "-EncodedCommand", encoded
+    "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", encoded
   ], { windowsHide: true, timeout: 10000 });
 }
