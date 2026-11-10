@@ -140,9 +140,9 @@ First, make sure dependency installation completed successfully. If the Electron
 ## Current limitations
 
 - Windows only for shortcut execution.
-- Gesture and shortcut mappings are hard-coded.
+- The current gesture recognizer supports two fingers only.
 - Application activation currently requires the target application to be running.
-- No customizable control surfaces or actions yet.
+- Application-specific actions currently send keyboard shortcuts; other action types can be added later.
 - Gesture detection depends on the browser and touch hardware.
 - The phone and computer must remain on the same local network.
 
