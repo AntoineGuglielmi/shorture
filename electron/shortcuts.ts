@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import path from "node:path";
-import type { ShortcutAction } from "./types";
+import type { ShortcutAction, TargetApplication } from "./types";
 
 const execFileAsync = promisify(execFile);
 
@@ -67,8 +67,6 @@ export async function executeShortcut(executablePath: string, action: ShortcutAc
   }
 }
 
-export type TargetApplication = "vscode" | "phpstorm" | "chrome" | "teams";
-
 const processNames: Record<TargetApplication, string[]> = {
   vscode: ["Code"],
   phpstorm: ["phpstorm64", "phpstorm"],
@@ -104,7 +102,7 @@ export async function activateApplication(application: TargetApplication, toggle
     "  $wasAlreadyForeground = ([ShortureWindowApi]::GetForegroundWindow() -eq $handle)",
     "  if ($wasMinimized) {",
     "    [ShortureWindowApi]::ShowWindowAsync($handle, 9) | Out-Null",
-    "  } elseif ($wasAlreadyForeground -and " + (false ? "false" : "true") + ") {",
+    "  } elseif ($wasAlreadyForeground -and " + (toggleIfFocused ? "true" : "false") + ") {",
     "    if ([ShortureWindowApi]::IsZoomed($handle)) {",
     "      [ShortureWindowApi]::ShowWindowAsync($handle, 9) | Out-Null",
     "    } else {",
