@@ -33,7 +33,6 @@ export type DesktopInfo = {
   addresses: string[];
   port: number;
   pin: string;
-  targetPath: string | null;
   config: ShortureConfig;
 };
 
