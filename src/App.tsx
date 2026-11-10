@@ -206,7 +206,6 @@ function MobileApp() {
         time: Date.now()
       };
       moved.current = false;
-      swipeTriggered.current = false;
     }
   };
 
@@ -252,7 +251,6 @@ function MobileApp() {
     pointerMap.current.delete(event.pointerId);
     if (pointerMap.current.size < 2) {
       gestureStart.current = null;
-      swipeTriggered.current = false;
     }
   };
 
@@ -351,6 +349,7 @@ function MobileApp() {
             <h1>Fais un<br /><span>geste.</span></h1>
           </div>
           <div
+            ref={touchPadRef}
             className="touch-pad"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
