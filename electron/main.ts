@@ -1,8 +1,9 @@
 import { app, BrowserWindow, dialog, ipcMain } from "electron";
 import path from "node:path";
 import { randomInt } from "node:crypto";
-import { createLocalServer, getLocalAddresses, type GestureName } from "./server";
-import { executeShortcut, type ShortcutAction } from "./shortcuts";
+import { createLocalServer, getLocalAddresses } from "./server";
+import { executeShortcut } from "./shortcuts";
+import type { GestureName, ShortcutAction } from "./types";
 
 let mainWindow: BrowserWindow | null = null;
 let targetPath: string | null = null;
