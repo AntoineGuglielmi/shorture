@@ -38,9 +38,7 @@ function DesktopApp() {
     }
   };
 
-  const mobileUrl = info?.addresses[0]
-    ? `http://${info.addresses[0]}:5173/mobile`
-    : null;
+  const mobileUrls = info?.addresses.map((address) => `http://${address}:5173/mobile`) ?? [];
 
   return (
     <main className="desktop-shell">
@@ -73,7 +71,9 @@ function DesktopApp() {
           <p className="eyebrow">02 / CONNEXION LOCALE</p>
           <h2>Connecte ton téléphone</h2>
           <p className="muted">Le PC et le Redmi doivent être sur le même réseau Wi-Fi. Ouvre cette adresse sur ton téléphone :</p>
-          {mobileUrl ? <p className="address">{mobileUrl}</p> : <p className="notice">Aucune adresse réseau détectée. Vérifie que le Wi-Fi est activé.</p>}
+          {mobileUrls.length > 0
+            ? mobileUrls.map((url) => <p className="address" key={url}>{url}</p>)
+            : <p className="notice">Aucune adresse réseau détectée. Vérifie que le Wi-Fi est activé.</p>}
           <div className="pin-block">
             <span className="muted">CODE D’APPAIRAGE</span>
             <strong>{info?.pin ?? "------"}</strong>
