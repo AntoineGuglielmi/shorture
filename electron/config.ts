@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import type { GestureName, InstalledApplication, ShortureConfig } from "./types";
 
 export const gestures: Array<{ id: GestureName; label: string; fingers: 1 | 2 }> = [
@@ -19,13 +18,13 @@ export function createDefaultConfig(installed: InstalledApplication[] = []): Sho
 
   return {
     globalCommands: [{
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       fingers: 2,
       gesture: "two-finger-swipe-left",
       action: { type: "activate-application", applicationId: vscode.id }
     }],
     contextApps: [{
-      id: randomUUID(),
+      id: crypto.randomUUID(),
       application: vscode,
       commands: [{
         id: randomUUID(),
