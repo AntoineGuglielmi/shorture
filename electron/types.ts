@@ -8,7 +8,6 @@ export type GestureName =
   | "pinch-out";
 export type ShortcutAction =
   | "command-palette"
-  | "open-terminal"
   | "save"
   | "undo"
   | "activate-vscode"
