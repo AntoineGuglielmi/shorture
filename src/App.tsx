@@ -167,7 +167,7 @@ function MobileApp() {
 
   useEffect(() => {
     const urlPin = new URLSearchParams(window.location.search).get("pin");
-    if (urlPin && /^\\d{6}$/.test(urlPin)) {
+    if (urlPin && /^\d{6}$/.test(urlPin)) {
       setPin(urlPin);
       connect(urlPin);
     }
