@@ -2,7 +2,6 @@ import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { access } from "node:fs/promises";
 import { promisify } from "node:util";
-import path from "node:path";
 import type { InstalledApplication } from "./types";
 
 const execFileAsync = promisify(execFile);
