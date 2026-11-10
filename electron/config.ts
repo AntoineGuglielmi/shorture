@@ -25,7 +25,7 @@ export function createDefaultConfig(): ShortureConfig {
     ["two-finger-swipe-down", "teams"]
   ].map(([gesture, application]) => ({
     id: `global-${gesture}`,
-    fingers: 2,
+    fingers: 2 as const,
     gesture: gesture as GestureName,
     scope: { type: "global" as const },
     action: { type: "activate-application" as const, application: application as TargetApplication }
