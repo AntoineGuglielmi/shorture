@@ -97,7 +97,7 @@ export function parseConfig(value: unknown): ShortureConfig {
       }
     } else if (binding.action?.type === "keyboard-shortcut") {
       if (binding.scope.type !== "application" || typeof binding.action.shortcut !== "string" ||
-        !/^(Ctrl|Alt|Shift)(\+(Ctrl|Alt|Shift))*\+[A-Za-z0-9]+$/i.test(binding.action.shortcut) ||
+        !/^(Ctrl|Alt|Shift)(\+(Ctrl|Alt|Shift))*\+[A-Za-z0-9]$/i.test(binding.action.shortcut) ||
         binding.action.shortcut.length > 40) {
         throw new Error("Raccourci clavier invalide.");
       }
