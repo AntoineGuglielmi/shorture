@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { PointerEvent } from "react";
-import type { ContextApp, DesktopInfo, GestureCommand, GestureName, InstalledApplication, ShortureConfig, ShortcutFailure } from "../electron/types";
+import type { ContextApp, DesktopInfo, GestureCommand, GestureName, ShortureConfig, ShortcutFailure } from "../electron/types";
 import { gestures } from "../electron/config";
 import { QRCodeSVG } from "qrcode.react";
 
