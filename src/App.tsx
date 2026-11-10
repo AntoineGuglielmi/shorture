@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import type { PointerEvent } from "react";
+import type { KeyboardEvent, PointerEvent } from "react";
 import type { ContextApp, DesktopInfo, GestureCommand, GestureName, ShortureConfig, ShortcutFailure } from "../electron/types";
 import { gestures } from "../electron/config";
 import { QRCodeSVG } from "qrcode.react";
@@ -21,7 +21,7 @@ function ShortcutRecorder({ value, onChange }: { value: string; onChange: (value
   const [listening, setListening] = useState(false);
   const pressed = useRef(new Set<string>());
 
-  const onKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (!listening) return;
     event.preventDefault();
     event.stopPropagation();
@@ -42,7 +42,7 @@ function ShortcutRecorder({ value, onChange }: { value: string; onChange: (value
         return result;
       }, {});
       const duplicate = Object.entries(counts).find(([, count]) => count > 1);
-      if (duplicate) onChange(`${duplicate[0]}+${duplicate[0]}`);
+      if (duplicate) { onChange(`${duplicate[0]}+${duplicate[0]}`); setListening(false); pressed.current.clear(); }
       else if (modifiers.length > 1) onChange([...new Set(modifiers)].join("+"));
       return;
     }
