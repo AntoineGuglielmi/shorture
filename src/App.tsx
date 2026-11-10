@@ -134,6 +134,7 @@ function MobileApp() {
   const [connected, setConnected] = useState(false);
   const [status, setStatus] = useState("Entre le code affiché sur ton ordinateur.");
   const [lastAction, setLastAction] = useState("");
+  const [touchDebug, setTouchDebug] = useState("Aucun événement tactile.");
   const socketRef = useRef<WebSocket | null>(null);
   const pinRef = useRef("");
 
@@ -197,6 +198,7 @@ function MobileApp() {
       startX: event.clientX,
       startY: event.clientY
     });
+    setTouchDebug(`DOWN · ${event.pointerType} · ${pointerMap.current.size} contact(s)`);
     if (pointerMap.current.size >= 2) {
       gestureStart.current = {
         count: pointerMap.current.size,
@@ -217,6 +219,7 @@ function MobileApp() {
       moved.current = true;
     }
     pointerMap.current.set(event.pointerId, { ...previous, x: event.clientX, y: event.clientY });
+    setTouchDebug(`MOVE · ${event.pointerType} · ${pointerMap.current.size} contact(s) · ΔY ${Math.round(event.clientY - previous.startY)} px`);
 
     // Recognize a three-finger swipe while all three contacts are still active.
     // This avoids depending on the order/timing of pointerup events on Android.
@@ -234,6 +237,7 @@ function MobileApp() {
   };
 
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
+    setTouchDebug(`${event.type.toUpperCase()} · ${event.pointerType} · ${pointerMap.current.size} contact(s)`);
     const start = gestureStart.current;
     const startCount = start?.count ?? pointerMap.current.size;
 
@@ -313,6 +317,7 @@ function MobileApp() {
           <div className="mobile-feedback">
             <span>{lastAction || "En attente d’un geste"}</span>
             <p>{status}</p>
+            <p className="touch-debug">{touchDebug}</p>
           </div>
           <button className="text-button disconnect" onClick={() => { socketRef.current?.close(); setConnected(false); setStatus("Déconnecté."); }}>Déconnecter</button>
         </section>
