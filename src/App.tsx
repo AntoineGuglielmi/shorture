@@ -165,14 +165,14 @@ function MobileApp() {
     }
   };
 
-  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const previous = pointerMap.current.get(event.pointerId);
     if (!previous) return;
     if (Math.hypot(event.clientX - previous.x, event.clientY - previous.y) > 18) moved.current = true;
     pointerMap.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
   };
 
-  const onPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+  const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
     const start = gestureStart.current;
     const currentPoints = [...pointerMap.current.values()];
     const startCount = start?.count ?? pointerMap.current.size;
