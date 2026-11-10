@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PointerEvent } from "react";
-import type { DesktopInfo, GestureName, ShortcutFailure } from "../electron/types";
+import type { DesktopInfo, GestureBinding, GestureName, ShortureConfig, ShortcutFailure, TargetApplication } from "../electron/types";
+import { applications, gestures } from "../electron/config";
 import { QRCodeSVG } from "qrcode.react";
 
 type ServerMessage = {
@@ -21,12 +22,22 @@ const gestureLabels: Record<GestureName, string> = {
 
 function DesktopApp() {
   const [info, setInfo] = useState<DesktopInfo | null>(null);
+  const [config, setConfig] = useState<ShortureConfig | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shortcutFailure, setShortcutFailure] = useState<ShortcutFailure | null>(null);
+  const [saveMessage, setSaveMessage] = useState("");
+  const [scopeType, setScopeType] = useState<"global" | "application">("application");
+  const [scopeApplication, setScopeApplication] = useState<TargetApplication>("vscode");
+  const [gesture, setGesture] = useState<GestureName>("two-finger-tap");
+  const [actionApplication, setActionApplication] = useState<TargetApplication>("vscode");
+  const [shortcut, setShortcut] = useState("Ctrl+S");
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
-      setInfo(await window.shorture.getDesktopInfo());
+      const desktopInfo = await window.shorture.getDesktopInfo();
+      setInfo(desktopInfo);
+      setConfig(desktopInfo.config);
       setError(null);
     } catch {
       setError("Impossible de récupérer les informations de l’application.");
@@ -34,21 +45,88 @@ function DesktopApp() {
   }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
-
   useEffect(() => window.shorture.onShortcutError(setShortcutFailure), []);
 
-  const chooseApplication = async () => {
-    const selected = await window.shorture.chooseApplication();
-    if (selected) {
-      await window.shorture.setTargetPath(selected);
-      await refresh();
+  const persistConfig = async (next: ShortureConfig) => {
+    try {
+      const saved = await window.shorture.saveConfig(next);
+      setConfig(saved);
+      setSaveMessage("Configuration enregistrée sur cet ordinateur.");
+      setError(null);
+    } catch (cause) {
+      setSaveMessage("");
+      setError(cause instanceof Error ? cause.message : "Impossible d’enregistrer la configuration.");
     }
   };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setScopeType("application");
+    setScopeApplication("vscode");
+    setGesture("two-finger-tap");
+    setActionApplication("vscode");
+    setShortcut("Ctrl+S");
+  };
+
+  const editBinding = (binding: GestureBinding) => {
+    setEditingId(binding.id);
+    setGesture(binding.gesture);
+    if (binding.scope.type === "global") {
+      setScopeType("global");
+      if (binding.action.type === "activate-application") setActionApplication(binding.action.application);
+    } else {
+      setScopeType("application");
+      setScopeApplication(binding.scope.application);
+      if (binding.action.type === "keyboard-shortcut") setShortcut(binding.action.shortcut);
+    }
+    document.getElementById("binding-editor")?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const submitBinding = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!config) return;
+
+    const binding: GestureBinding = {
+      id: editingId ?? `binding-${Date.now()}`,
+      fingers: 2,
+      gesture,
+      scope: scopeType === "global"
+        ? { type: "global" }
+        : { type: "application", application: scopeApplication },
+      action: scopeType === "global"
+        ? { type: "activate-application", application: actionApplication }
+        : { type: "keyboard-shortcut", shortcut: shortcut.trim() }
+    };
+
+    const nextBindings = config.bindings.filter((item) =>
+      item.id !== editingId &&
+      !(item.gesture === gesture && (
+        scopeType === "global"
+          ? item.scope.type === "global"
+          : item.scope.type === "application" && item.scope.application === scopeApplication
+      ))
+    );
+    await persistConfig({ bindings: [...nextBindings, binding] });
+    resetForm();
+  };
+
+  const deleteBinding = async (id: string) => {
+    if (!config) return;
+    await persistConfig({ bindings: config.bindings.filter((binding) => binding.id !== id) });
+    if (editingId === id) resetForm();
+  };
+
+  const appLabel = (id: TargetApplication) => applications.find((item) => item.id === id)?.label ?? id;
+  const gestureLabel = (id: GestureName) => gestures.find((item) => item.id === id)?.label ?? id;
+  const describeAction = (binding: GestureBinding) => binding.action.type === "activate-application"
+    ? `Activer ${appLabel(binding.action.application)}`
+    : binding.action.shortcut;
 
   const mobileUrls = info?.addresses.map((address) => `http://${address}:5173/mobile`) ?? [];
   const pairingUrl = mobileUrls[0] && info?.pin
     ? `${mobileUrls[0]}?pin=${encodeURIComponent(info.pin)}`
     : null;
+  const globalBindings = config?.bindings.filter((binding) => binding.scope.type === "global") ?? [];
 
   return (
     <main className="desktop-shell">
@@ -60,7 +138,7 @@ function DesktopApp() {
       <section className="intro">
         <p className="eyebrow">TOUCH INPUT / DESKTOP ACTIONS</p>
         <h1>Un geste.<br /><span>Une action.</span></h1>
-        <p className="lead">Ton téléphone devient une surface de raccourcis pour ton ordinateur.</p>
+        <p className="lead">Ton téléphone devient une surface de commandes configurable pour ton ordinateur.</p>
       </section>
 
       {error && <p className="notice error">{error}</p>}
@@ -79,20 +157,9 @@ function DesktopApp() {
         </section>
       )}
 
-      <section className="panel application-panel">
-        <div>
-          <p className="eyebrow">01 / CIBLE DES RACCOURCIS CLAVIER</p>
-          <h2>{info?.targetPath ? info.targetPath.split(/[\\/]/).pop() : "Aucune application sélectionnée"}</h2>
-          <p className="muted">{info?.targetPath ?? "Choisis le fichier .exe de l’application à piloter."}</p>
-        </div>
-        <button className="button secondary" onClick={() => void chooseApplication()}>
-          {info?.targetPath ? "Changer" : "Choisir un .exe"}
-        </button>
-      </section>
-
       <section className="connection-grid">
         <article className="panel connection-panel">
-          <p className="eyebrow">02 / CONNEXION LOCALE</p>
+          <p className="eyebrow">01 / CONNEXION LOCALE</p>
           <h2>Connecte ton téléphone</h2>
           <p className="muted">Scanne ce QR code avec l’appareil photo de ton téléphone. Le PC et le mobile doivent être sur le même réseau Wi-Fi.</p>
           {pairingUrl && (
@@ -113,23 +180,123 @@ function DesktopApp() {
         </article>
 
         <article className="panel mapping-panel">
-          <p className="eyebrow">03 / GESTES CONFIGURÉS</p>
-          <h2>Navigation et raccourcis</h2>
-          <ul className="mapping-list">
-            <li><span>2 doigts ←</span><kbd>VS Code</kbd><small>Activer la fenêtre</small></li>
-            <li><span>2 doigts ↑</span><kbd>PhpStorm</kbd><small>Activer la fenêtre</small></li>
-            <li><span>2 doigts →</span><kbd>Chrome</kbd><small>Activer la fenêtre</small></li>
-            <li><span>2 doigts ↓</span><kbd>Teams</kbd><small>Activer la fenêtre</small></li>
-            <li><span>2 doigts · tap</span><kbd>Ctrl + S</kbd><small>Enregistrer dans l’application cible</small></li>
-            <li><span>Pincement entrant</span><kbd>Ctrl + Z</kbd><small>Annuler dans l’application cible</small></li>
-            <li><span>Pincement sortant</span><kbd>Ctrl + Shift + P</kbd><small>Palette de commandes</small></li>
-          </ul>
+          <p className="eyebrow">02 / LOGIQUE DE CONFIGURATION</p>
+          <h2>Deux niveaux de commandes</h2>
+          <div className="logic-explainer">
+            <div><strong>Global</strong><span>Le geste agit sur le bureau, quelle que soit l’application au premier plan.</span></div>
+            <div><strong>Par application</strong><span>Le geste déclenche une commande uniquement dans l’application actuellement active.</span></div>
+          </div>
+          <p className="hint">Les gestes globaux sont prioritaires lorsqu’un même geste existe dans les deux contextes.</p>
         </article>
+      </section>
+
+      <section className="configuration-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">03 / COMMANDES GLOBALES</p>
+            <h2>Indépendantes de l’application</h2>
+          </div>
+          <span className="count">{globalBindings.length} association(s)</span>
+        </div>
+        <div className="binding-list">
+          {globalBindings.length === 0 && <p className="empty-state">Aucun geste global configuré.</p>}
+          {globalBindings.map((binding) => (
+            <article className="binding-row" key={binding.id}>
+              <div className="binding-gesture"><span>2 DOIGTS</span><strong>{gestureLabel(binding.gesture)}</strong></div>
+              <div className="binding-action"><span>FONCTIONNALITÉ</span><strong>{describeAction(binding)}</strong></div>
+              <div className="binding-controls">
+                <button className="text-button" onClick={() => editBinding(binding)}>Modifier</button>
+                <button className="text-button danger-text" onClick={() => void deleteBinding(binding.id)}>Supprimer</button>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="configuration-section">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">04 / COMMANDES CONTEXTUELLES</p>
+            <h2>Associées à une application</h2>
+          </div>
+        </div>
+        {applications.map((application) => {
+          const items = config?.bindings.filter((binding) =>
+            binding.scope.type === "application" && binding.scope.application === application.id
+          ) ?? [];
+          return (
+            <div className="application-bindings" key={application.id}>
+              <div className="application-bindings-heading"><h3>{application.label}</h3><span>{items.length} commande(s)</span></div>
+              {items.length === 0 && <p className="empty-state">Aucune commande configurée.</p>}
+              {items.map((binding) => (
+                <article className="binding-row compact" key={binding.id}>
+                  <div className="binding-gesture"><span>2 DOIGTS</span><strong>{gestureLabel(binding.gesture)}</strong></div>
+                  <div className="binding-action"><span>RACCOURCI CLAVIER</span><strong><kbd>{describeAction(binding)}</kbd></strong></div>
+                  <div className="binding-controls">
+                    <button className="text-button" onClick={() => editBinding(binding)}>Modifier</button>
+                    <button className="text-button danger-text" onClick={() => void deleteBinding(binding.id)}>Supprimer</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          );
+        })}
+      </section>
+
+      <section className="panel editor-panel" id="binding-editor">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">05 / ÉDITEUR D’ASSOCIATION</p>
+            <h2>{editingId ? "Modifier une commande" : "Ajouter une commande"}</h2>
+          </div>
+          {editingId && <button className="text-button" onClick={resetForm}>Annuler la modification</button>}
+        </div>
+        <form className="binding-form" onSubmit={(event) => void submitBinding(event)}>
+          <label>
+            <span>Contexte</span>
+            <select value={scopeType} onChange={(event) => setScopeType(event.target.value as "global" | "application")}>
+              <option value="global">Global — indépendant de l’application</option>
+              <option value="application">Application active</option>
+            </select>
+          </label>
+          {scopeType === "application" ? (
+            <label>
+              <span>Application cible</span>
+              <select value={scopeApplication} onChange={(event) => setScopeApplication(event.target.value as TargetApplication)}>
+                {applications.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}
+              </select>
+            </label>
+          ) : (
+            <label>
+              <span>Fenêtre à activer</span>
+              <select value={actionApplication} onChange={(event) => setActionApplication(event.target.value as TargetApplication)}>
+                {applications.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}
+              </select>
+            </label>
+          )}
+          <label>
+            <span>Geste (2 doigts)</span>
+            <select value={gesture} onChange={(event) => setGesture(event.target.value as GestureName)}>
+              {gestures.map((item) => <option value={item.id} key={item.id}>{item.label}</option>)}
+            </select>
+          </label>
+          {scopeType === "application" && (
+            <label>
+              <span>Raccourci clavier</span>
+              <input value={shortcut} onChange={(event) => setShortcut(event.target.value)} placeholder="Ctrl+Shift+P" required />
+              <small>Format : Ctrl, Alt ou Shift, puis une touche. Exemple : Ctrl+S.</small>
+            </label>
+          )}
+          <div className="form-actions">
+            <button className="button primary" type="submit">{editingId ? "Enregistrer les modifications" : "Ajouter l’association"}</button>
+            {saveMessage && <span className="save-message">{saveMessage}</span>}
+          </div>
+        </form>
       </section>
 
       <footer className="footer">
         <span>SHORTURE / PREMIER PROTOTYPE</span>
-        <button className="text-button" onClick={() => void refresh()}>Actualiser les informations</button>
+        <button className="text-button" onClick={() => void refresh()}>Recharger la configuration</button>
       </footer>
     </main>
   );
