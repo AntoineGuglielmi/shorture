@@ -47,15 +47,17 @@ function DesktopApp() {
   useEffect(() => { void refresh(); }, [refresh]);
   useEffect(() => window.shorture.onShortcutError(setShortcutFailure), []);
 
-  const persistConfig = async (next: ShortureConfig) => {
+  const persistConfig = async (next: ShortureConfig): Promise<boolean> => {
     try {
       const saved = await window.shorture.saveConfig(next);
       setConfig(saved);
       setSaveMessage("Configuration enregistrée sur cet ordinateur.");
       setError(null);
+      return true;
     } catch (cause) {
       setSaveMessage("");
       setError(cause instanceof Error ? cause.message : "Impossible d’enregistrer la configuration.");
+      return false;
     }
   };
 
@@ -106,8 +108,7 @@ function DesktopApp() {
           : item.scope.type === "application" && item.scope.application === scopeApplication
       ))
     );
-    await persistConfig({ bindings: [...nextBindings, binding] });
-    resetForm();
+    if (await persistConfig({ bindings: [...nextBindings, binding] })) resetForm();
   };
 
   const deleteBinding = async (id: string) => {
